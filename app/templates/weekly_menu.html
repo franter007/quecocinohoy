@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-1">Menu semanal</h1>
+    <p class="text-muted mb-0">Vista lunes a domingo con costo estimado y advertencias nutricionales.</p>
+  </div>
+</section>
+
+<section class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" action="/menus" class="row g-2 align-items-end mb-3">
+      <div class="col-md-4">
+        <label class="form-label">Semana (fecha lunes)</label>
+        <input class="form-control" type="date" name="week_start" value="{{ week_start.isoformat() }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Semanas existentes</label>
+        <select class="form-select" onchange="if(this.value){window.location='/menus?week_start='+this.value}">
+          <option value="">Seleccionar...</option>
+          {% for wk in week_options %}
+          <option value="{{ wk.isoformat() }}">{{ wk.isoformat() }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-outline-primary" type="submit">Ver semana</button>
+      </div>
+    </form>
+
+    <form method="post" action="/menus/generate" class="row g-2 align-items-end">
+      <input type="hidden" name="week_start" value="{{ week_start.isoformat() }}">
+      <div class="col-md-4">
+        <label class="form-check">
+          <input class="form-check-input" type="checkbox" name="force">
+          <span class="form-check-label">Regenerar menu para esta semana</span>
+        </label>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-primary" type="submit">Generar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% if menu %}
+<section class="card shadow-sm">
+  <div class="card-header">
+    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+      <h2 class="h5 mb-0">Semana {{ week_start.isoformat() }}</h2>
+      <span class="fw-semibold">Total semanal: S/ {{ "%.2f"|format(total_cost) }}</span>
+    </div>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <input type="hidden" name="week_start" value="{{ week_start.isoformat() }}">
+      <div class="col-12">
+        <label class="form-label">Plantilla de columnas</label>
+        <select class="form-select mb-2" name="preset">
+          <option value="custom" {% if selected_menu_export_preset == "custom" %}selected{% endif %}>Personalizado</option>
+          {% for preset in menu_export_presets %}
+          <option value="{{ preset.key }}" {% if selected_menu_export_preset == preset.key %}selected{% endif %}>
+            {{ preset.label }}
+          </option>
+          {% endfor %}
+        </select>
+        <label class="form-label">Columnas para exportar (PDF/PNG/WhatsApp)</label>
+        <small class="text-muted d-block mb-2">Si eliges plantilla, prevalece sobre la seleccion manual.</small>
+        <div class="d-flex flex-wrap gap-3">
+          {% for col in menu_export_columns %}
+          <label class="form-check mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="columns"
+              value="{{ col.key }}"
+              {% if col.key in selected_menu_export_columns %}checked{% endif %}
+            >
+            <span class="form-check-label">{{ col.label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-outline-primary" type="submit" formaction="/menus/export/pdf">Exportar PDF</button>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-outline-primary" type="submit" formaction="/menus/export/png">Exportar PNG</button>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-success" type="submit" formtarget="_blank" formaction="/menus/share/whatsapp">Compartir WhatsApp</button>
+      </div>
+    </form>
+    <small class="text-muted mt-2 d-block">
+      En WhatsApp se comparte un mensaje con enlaces al menu/PDF/PNG. Adjuntar archivo automatico depende de WhatsApp.
+    </small>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Dia</th>
+          {% for meal_type in meal_labels.keys() %}
+          <th>{{ meal_labels[meal_type] }}</th>
+          {% endfor %}
+          <th>Costo dia</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.day_name }}</td>
+          {% for meal_type in meal_labels.keys() %}
+          <td>
+            {% if row.meals[meal_type] %}
+            <div class="fw-semibold">{{ row.meals[meal_type].dish.name }}</div>
+            <div class="small text-muted">S/ {{ "%.2f"|format(row.meals[meal_type].estimated_cost) }}</div>
+            <div class="small {% if row.meals[meal_type].dish.is_healthy %}text-success{% else %}text-warning{% endif %}">
+              {{ row.meals[meal_type].dish.warnings }}
+            </div>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          {% endfor %}
+          <td class="fw-semibold">S/ {{ "%.2f"|format(row.daily_total) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="card shadow-sm">
+  <div class="card-body">
+    <p class="mb-0">No existe menu para la semana {{ week_start.isoformat() }}. Genera uno con el boton.</p>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

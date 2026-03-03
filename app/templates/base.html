@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Que Cocino Hoy</title>
+  <script>
+    (function () {
+      var key = "qch_theme";
+      var allowed = { "vitaminico": true, "power-red": true, "lime-tech": true };
+      var theme = "vitaminico";
+      try {
+        var saved = window.localStorage.getItem(key);
+        if (saved && allowed[saved]) {
+          theme = saved;
+        }
+      } catch (err) {}
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark app-nav mb-4">
+    <div class="container">
+      <a class="navbar-brand" href="/">Que Cocino Hoy</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navMain">
+        {% if current_user %}
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
+          {% if can_view_menu %}
+          <li class="nav-item"><a class="nav-link" href="/menus">Menu semanal</a></li>
+          {% endif %}
+          {% if can_manage_dishes %}
+          <li class="nav-item"><a class="nav-link" href="/dishes">Platos</a></li>
+          {% endif %}
+          {% if can_view_reports %}
+          <li class="nav-item"><a class="nav-link" href="/reports">Reportes</a></li>
+          {% endif %}
+          {% if can_manage_users %}
+          <li class="nav-item"><a class="nav-link" href="/users">Usuarios</a></li>
+          {% endif %}
+          {% if can_manage_security %}
+          <li class="nav-item"><a class="nav-link" href="/security">Seguridad</a></li>
+          {% endif %}
+          <li class="nav-item nav-theme-item">
+            <label class="visually-hidden" for="themeSelect">Tema visual</label>
+            <select class="form-select form-select-sm theme-select" id="themeSelect" aria-label="Tema visual">
+              <option value="vitaminico">Vitaminico</option>
+              <option value="power-red">Power Red</option>
+              <option value="lime-tech">Lime Tech</option>
+            </select>
+          </li>
+          <li class="nav-item">
+            <span class="badge text-bg-light">
+              {{ current_user.username }} - {{ role_labels.get(current_user.role, current_user.role) }}
+            </span>
+          </li>
+          <li class="nav-item">
+            <form method="post" action="/logout">
+              <button class="btn btn-sm btn-outline-light" type="submit">Salir</button>
+            </form>
+          </li>
+        </ul>
+        {% else %}
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+          <li class="nav-item nav-theme-item">
+            <label class="visually-hidden" for="themeSelect">Tema visual</label>
+            <select class="form-select form-select-sm theme-select" id="themeSelect" aria-label="Tema visual">
+              <option value="vitaminico">Vitaminico</option>
+              <option value="power-red">Power Red</option>
+              <option value="lime-tech">Lime Tech</option>
+            </select>
+          </li>
+          <li class="nav-item"><a class="nav-link" href="/login">Iniciar sesion</a></li>
+        </ul>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <main class="container pb-5">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    (function () {
+      var key = "qch_theme";
+      var allowed = ["vitaminico", "power-red", "lime-tech"];
+      var root = document.documentElement;
+      var select = document.getElementById("themeSelect");
+
+      function normalize(theme) {
+        return allowed.indexOf(theme) >= 0 ? theme : "vitaminico";
+      }
+
+      function apply(theme) {
+        var chosen = normalize(theme);
+        root.setAttribute("data-theme", chosen);
+        if (select) {
+          select.value = chosen;
+        }
+      }
+
+      var initial = normalize(root.getAttribute("data-theme"));
+      apply(initial);
+
+      if (!select) {
+        return;
+      }
+
+      select.addEventListener("change", function () {
+        var chosen = normalize(select.value);
+        apply(chosen);
+        try {
+          window.localStorage.setItem(key, chosen);
+        } catch (err) {}
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="mb-3 d-flex justify-content-between align-items-center">
+  <div>
+    <h1 class="h3 mb-1">{{ title }}</h1>
+    <p class="text-muted mb-0">Define rol y permisos del usuario.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/users">Volver</a>
+</section>
+
+<section class="card shadow-sm">
+  <div class="card-body">
+    {% if error %}
+    <div class="alert alert-danger py-2">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="{{ action }}" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Usuario</label>
+        <input
+          class="form-control"
+          type="text"
+          name="username"
+          value="{{ user_obj.username if user_obj else '' }}"
+          required
+        >
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Nombre completo</label>
+        <input
+          class="form-control"
+          type="text"
+          name="full_name"
+          value="{{ user_obj.full_name if user_obj else '' }}"
+        >
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Rol</label>
+        <select class="form-select" name="role" required>
+          {% for role in role_options %}
+          <option
+            value="{{ role.key }}"
+            {% if user_obj and user_obj.role == role.key %}selected{% endif %}
+          >
+            {{ role.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">
+          {% if user_obj %}Nueva contrasena (opcional){% else %}Contrasena{% endif %}
+        </label>
+        <input class="form-control" type="password" name="password" {% if not user_obj %}required{% endif %}>
+      </div>
+      <div class="col-md-6 d-flex align-items-center">
+        <label class="form-check mt-3">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            name="is_active"
+            {% if not user_obj or user_obj.is_active %}checked{% endif %}
+          >
+          <span class="form-check-label">Usuario activo</span>
+        </label>
+      </div>
+
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Guardar</button>
+        <a class="btn btn-outline-secondary" href="/users">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-1">Usuarios y privilegios</h1>
+    <p class="text-muted mb-0">Gestion de cuentas y roles del sistema.</p>
+  </div>
+  <a class="btn btn-primary" href="/users/new">Nuevo usuario</a>
+</section>
+
+<section class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Nombre</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Accion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td class="fw-semibold">{{ user.username }}</td>
+          <td>{{ user.full_name or "-" }}</td>
+          <td>{{ role_labels.get(user.role, user.role) }}</td>
+          <td>
+            {% if user.is_active %}
+            <span class="badge text-bg-success">Activo</span>
+            {% else %}
+            <span class="badge text-bg-secondary">Inactivo</span>
+            {% endif %}
+          </td>
+          <td><a class="btn btn-sm btn-outline-primary" href="/users/{{ user.id }}/edit">Editar</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-3">Sin usuarios</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

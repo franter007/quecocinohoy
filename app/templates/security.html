@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="mb-3 d-flex justify-content-between align-items-center">
+  <div>
+    <h1 class="h3 mb-1">Seguridad de login</h1>
+    <p class="text-muted mb-0">Configura reglas anti-abuso sin tocar variables de entorno.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/users">Volver a usuarios</a>
+</section>
+
+{% if saved %}
+<div class="alert alert-success">
+  Configuracion guardada. Los nuevos intentos de login ya usan estos valores.
+</div>
+{% endif %}
+
+<section class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="post" action="/security" class="row g-3">
+      {% for field in security_fields %}
+      <div class="col-lg-6">
+        <label class="form-label fw-semibold" for="field-{{ field.key }}">{{ field.label }}</label>
+
+        {% if field.value_type == "bool" %}
+        <select class="form-select" id="field-{{ field.key }}" name="{{ field.key }}" required>
+          <option value="1" {% if field.value == "1" %}selected{% endif %}>Si</option>
+          <option value="0" {% if field.value == "0" %}selected{% endif %}>No</option>
+        </select>
+        {% else %}
+        <input
+          class="form-control"
+          id="field-{{ field.key }}"
+          type="number"
+          name="{{ field.key }}"
+          value="{{ field.value }}"
+          {% if field.min_value is not none %}min="{{ field.min_value }}"{% endif %}
+          {% if field.max_value is not none %}max="{{ field.max_value }}"{% endif %}
+          step="1"
+          required
+        >
+        {% endif %}
+
+        {% if security_errors.get(field.key) %}
+        <div class="text-danger small mt-1">{{ security_errors.get(field.key) }}</div>
+        {% endif %}
+
+        <div class="form-text mt-2">{{ field.description }}</div>
+        <small class="d-block text-muted">Ejemplo: {{ field.example }}</small>
+        <small class="d-block text-muted">Valor por defecto: {{ field.default_value }}</small>
+        <small class="d-block text-muted">
+          Valor efectivo actual: {{ field.effective_value }}
+          {% if field.is_overridden %}
+          (con override guardado)
+          {% else %}
+          (usando default)
+          {% endif %}
+        </small>
+      </div>
+      {% endfor %}
+
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Guardar configuracion</button>
+        <a class="btn btn-outline-secondary" href="/security">Recargar valores</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card shadow-sm">
+  <div class="card-body">
+    <h2 class="h6">Guia rapida</h2>
+    <ul class="mb-0 text-muted small">
+      <li>Si reduces umbrales, aumentas seguridad pero tambien falsos bloqueos.</li>
+      <li>En produccion conviene desactivar "Confiar en localhost".</li>
+      <li>Si hay equipos compartidos, usa valores conservadores y monitorea reportes de intentos.</li>
+    </ul>
+  </div>
+</section>
+{% endblock %}

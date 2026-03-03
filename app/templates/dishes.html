@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-1">Platos registrados</h1>
+    <p class="text-muted mb-0">Crea, edita, elimina y busca platos por tipo de comida.</p>
+  </div>
+  <a class="btn btn-primary" href="/dishes/new">Nuevo plato</a>
+</section>
+
+<section class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" action="/dishes" class="row g-2 align-items-end">
+      <div class="col-md-6">
+        <label class="form-label">Buscar por nombre</label>
+        <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="Ej. pollo guisado">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Tipo</label>
+        <select class="form-select" name="meal_type">
+          <option value="">Todos</option>
+          {% for mt in meal_types %}
+          <option value="{{ mt }}" {% if meal_type == mt %}selected{% endif %}>{{ meal_labels[mt] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-outline-primary" type="submit">Filtrar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Costo por porcion</th>
+          <th>Calorias</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dish in dishes %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ dish.name }}</div>
+            <div class="small text-muted">{{ dish.ingredients }}</div>
+          </td>
+          <td>{{ meal_labels[dish.meal_type] }}</td>
+          <td>S/ {{ "%.2f"|format(dish.cost_per_serving) }}</td>
+          <td>{{ dish.calories }}</td>
+          <td>
+            {% if dish.is_active %}
+            <span class="badge text-bg-success">Activo</span>
+            {% else %}
+            <span class="badge text-bg-secondary">Inactivo</span>
+            {% endif %}
+            {% if dish.is_healthy %}
+            <span class="badge text-bg-info">Saludable</span>
+            {% else %}
+            <span class="badge text-bg-warning">Con alertas</span>
+            {% endif %}
+          </td>
+          <td class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="/dishes/{{ dish.id }}/edit">Editar</a>
+            <form method="post" action="/dishes/{{ dish.id }}/delete" onsubmit="return confirm('Eliminar plato?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-4 text-muted">No hay platos que coincidan con el filtro.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

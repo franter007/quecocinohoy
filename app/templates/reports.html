@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="mb-3">
+  <h1 class="h3 mb-1">Reportes de gastos y nutricion</h1>
+  <p class="text-muted mb-0">Consulta gastos diarios, semanales, mensuales o por rango de fechas.</p>
+</section>
+
+<section class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" action="/reports" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Desde</label>
+        <input class="form-control" type="date" name="start" value="{{ report.start.isoformat() }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Hasta</label>
+        <input class="form-control" type="date" name="end" value="{{ report.end.isoformat() }}">
+      </div>
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary" type="submit">Actualizar</button>
+      </div>
+      <div class="col-md-2 d-grid">
+        <a class="btn btn-outline-secondary" href="/api/reports?start={{ report.start.isoformat() }}&end={{ report.end.isoformat() }}">Ver JSON</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <input type="hidden" name="start" value="{{ report.start.isoformat() }}">
+      <input type="hidden" name="end" value="{{ report.end.isoformat() }}">
+      <div class="col-12">
+        <label class="form-label">Plantilla de columnas</label>
+        <select class="form-select mb-2" name="preset">
+          <option value="custom" {% if selected_report_export_preset == "custom" %}selected{% endif %}>Personalizado</option>
+          {% for preset in report_export_presets %}
+          <option value="{{ preset.key }}" {% if selected_report_export_preset == preset.key %}selected{% endif %}>
+            {{ preset.label }}
+          </option>
+          {% endfor %}
+        </select>
+        <label class="form-label">Columnas para exportar reporte diario consolidado</label>
+        <small class="text-muted d-block mb-2">Si eliges plantilla, prevalece sobre la seleccion manual.</small>
+        <div class="d-flex flex-wrap gap-3">
+          {% for col in report_export_columns %}
+          <label class="form-check mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="columns"
+              value="{{ col.key }}"
+              {% if col.key in selected_report_export_columns %}checked{% endif %}
+            >
+            <span class="form-check-label">{{ col.label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-outline-primary" type="submit" formaction="/reports/export/pdf">Exportar PDF</button>
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-outline-primary" type="submit" formaction="/reports/export/png">Exportar PNG</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card stat-card">
+      <div class="card-body">
+        <p class="text-muted mb-1">Periodo</p>
+        <p class="mb-0 fw-semibold">{{ report.start.isoformat() }} a {{ report.end.isoformat() }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card">
+      <div class="card-body">
+        <p class="text-muted mb-1">Gasto total</p>
+        <p class="display-6 mb-0">S/ {{ "%.2f"|format(report.total_cost) }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat-card">
+      <div class="card-body">
+        <p class="text-muted mb-1">Dias con datos</p>
+        <p class="display-6 mb-0">{{ report.daily|length }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><h2 class="h5 mb-0">Gasto diario</h2></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Fecha</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for item in report.daily %}
+            <tr><td>{{ item.date.isoformat() }}</td><td>S/ {{ "%.2f"|format(item.total) }}</td></tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><h2 class="h5 mb-0">Gasto por semana</h2></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Semana ISO</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for item in report.weekly %}
+            <tr><td>{{ item.week }}</td><td>S/ {{ "%.2f"|format(item.total) }}</td></tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><h2 class="h5 mb-0">Gasto por mes</h2></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Mes</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for item in report.monthly %}
+            <tr><td>{{ item.month }}</td><td>S/ {{ "%.2f"|format(item.total) }}</td></tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><h2 class="h5 mb-0">Gasto por tipo de comida</h2></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Tipo</th><th>Total</th></tr></thead>
+          <tbody>
+            {% for item in report.by_meal_type %}
+            <tr><td>{{ meal_labels[item.meal_type] }}</td><td>S/ {{ "%.2f"|format(item.total) }}</td></tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted text-center py-3">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header"><h2 class="h5 mb-0">Resumen nutricional diario estimado</h2></div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Calorias</th>
+              <th>Proteina (g)</th>
+              <th>Carbohidratos (g)</th>
+              <th>Grasas (g)</th>
+              <th>Fibra (g)</th>
+              <th>Azucar (g)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in report.nutrition_daily %}
+            <tr>
+              <td>{{ item.date.isoformat() }}</td>
+              <td>{{ item.calories }}</td>
+              <td>{{ item.protein_g }}</td>
+              <td>{{ item.carbs_g }}</td>
+              <td>{{ item.fat_g }}</td>
+              <td>{{ item.fiber_g }}</td>
+              <td>{{ item.sugar_g }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted text-center py-3">Sin datos</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
