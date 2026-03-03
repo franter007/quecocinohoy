@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
 from sqlalchemy import func, select
@@ -53,6 +53,14 @@ def _fail_count_and_last(
     return int(count or 0), last
 
 
+def _to_utc_naive(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def analyze_login_risk(
     session: Session,
     ip_address: str,
@@ -82,8 +90,11 @@ def analyze_login_risk(
     if normalized_username:
         combo_failures, combo_last = _fail_count_and_last(session, ip_address=ip_address, username=normalized_username, floor=floor)
         user_failures, user_last = _fail_count_and_last(session, ip_address=None, username=normalized_username, floor=floor)
+        combo_last = _to_utc_naive(combo_last)
+        user_last = _to_utc_naive(user_last)
 
     ip_failures, ip_last = _fail_count_and_last(session, ip_address=ip_address, username=None, floor=floor)
+    ip_last = _to_utc_naive(ip_last)
 
     block_candidates: list[datetime] = []
     if combo_failures >= runtime.block_combo_fails and combo_last:
