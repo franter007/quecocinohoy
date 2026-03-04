@@ -5,6 +5,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 from io import BytesIO
+import math
 from pathlib import Path
 from urllib.parse import quote_plus, urlencode
 
@@ -277,6 +278,72 @@ def _active_admin_count(db: Session) -> int:
     )
 
 
+def _build_dishes_list_context(
+    db: Session,
+    q: str | None,
+    meal_type: str | None,
+    page: int,
+    per_page: int,
+) -> dict:
+    clean_q = (q or "").strip()
+    clean_meal_type = meal_type if meal_type in MEAL_TYPES else ""
+    safe_page = max(1, page)
+    safe_per_page = min(100, max(5, per_page))
+
+    count_stmt = select(func.count()).select_from(Dish)
+    rows_stmt = select(Dish)
+
+    if clean_q:
+        like_value = f"%{clean_q}%"
+        count_stmt = count_stmt.where(Dish.name.ilike(like_value))
+        rows_stmt = rows_stmt.where(Dish.name.ilike(like_value))
+    if clean_meal_type:
+        count_stmt = count_stmt.where(Dish.meal_type == clean_meal_type)
+        rows_stmt = rows_stmt.where(Dish.meal_type == clean_meal_type)
+
+    total_items = int(db.scalar(count_stmt) or 0)
+    total_pages = max(1, math.ceil(total_items / safe_per_page)) if total_items else 1
+    current_page = min(safe_page, total_pages)
+    offset = (current_page - 1) * safe_per_page
+
+    rows_stmt = (
+        rows_stmt.order_by(Dish.meal_type, Dish.name)
+        .offset(offset)
+        .limit(safe_per_page)
+    )
+    dishes = list(db.scalars(rows_stmt).all())
+
+    if total_items:
+        start_item = offset + 1
+        end_item = min(offset + len(dishes), total_items)
+    else:
+        start_item = 0
+        end_item = 0
+
+    page_start = max(1, current_page - 2)
+    page_end = min(total_pages, current_page + 2)
+    page_numbers = list(range(page_start, page_end + 1))
+    base_query = urlencode({"q": clean_q, "meal_type": clean_meal_type, "per_page": safe_per_page})
+
+    return {
+        "dishes": dishes,
+        "q": clean_q,
+        "meal_type": clean_meal_type,
+        "page": current_page,
+        "per_page": safe_per_page,
+        "total_items": total_items,
+        "total_pages": total_pages,
+        "has_prev": current_page > 1,
+        "has_next": current_page < total_pages,
+        "prev_page": current_page - 1,
+        "next_page": current_page + 1,
+        "page_numbers": page_numbers,
+        "start_item": start_item,
+        "end_item": end_item,
+        "query_base": base_query,
+    }
+
+
 LOGIN_NONCE_KEY = "login_form_nonce"
 LOGIN_NONCE_TS_KEY = "login_form_nonce_ts"
 LOGIN_CHALLENGE_KEY = "login_math_challenge"
@@ -503,26 +570,43 @@ def dishes_page(
     request: Request,
     q: str | None = None,
     meal_type: str | None = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=5, le=100),
     db: Session = Depends(get_db),
 ):
     _require_permission(request, PERMISSION_DISHES)
-
-    stmt = select(Dish).order_by(Dish.meal_type, Dish.name)
-    if q:
-        stmt = stmt.where(Dish.name.ilike(f"%{q.strip()}%"))
-    if meal_type and meal_type in MEAL_TYPES:
-        stmt = stmt.where(Dish.meal_type == meal_type)
-
-    dishes = list(db.scalars(stmt).all())
+    list_context = _build_dishes_list_context(db, q=q, meal_type=meal_type, page=page, per_page=per_page)
     return _render(
         request,
         "dishes.html",
         {
-            "dishes": dishes,
             "meal_types": MEAL_TYPES,
             "meal_labels": MEAL_LABELS,
-            "q": q or "",
-            "meal_type": meal_type or "",
+            "results_endpoint": "/dishes/partial",
+            "base_path": "/dishes",
+            **list_context,
+        },
+    )
+
+
+@app.get("/dishes/partial", response_class=HTMLResponse)
+def dishes_partial(
+    request: Request,
+    q: str | None = None,
+    meal_type: str | None = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=5, le=100),
+    db: Session = Depends(get_db),
+):
+    _require_permission(request, PERMISSION_DISHES)
+    list_context = _build_dishes_list_context(db, q=q, meal_type=meal_type, page=page, per_page=per_page)
+    return templates.TemplateResponse(
+        "partials/dishes_table.html",
+        {
+            "request": request,
+            "meal_labels": MEAL_LABELS,
+            "base_path": "/dishes",
+            **list_context,
         },
     )
 

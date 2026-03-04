@@ -1,0 +1,84 @@
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Tipo</th>
+        <th>Costo por porcion</th>
+        <th>Calorias</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for dish in dishes %}
+      <tr>
+        <td>
+          <div class="fw-semibold">{{ dish.name }}</div>
+          <div class="small text-muted">{{ dish.ingredients }}</div>
+        </td>
+        <td>{{ meal_labels[dish.meal_type] }}</td>
+        <td>S/ {{ "%.2f"|format(dish.cost_per_serving) }}</td>
+        <td>{{ dish.calories }}</td>
+        <td>
+          {% if dish.is_active %}
+          <span class="badge text-bg-success">Activo</span>
+          {% else %}
+          <span class="badge text-bg-secondary">Inactivo</span>
+          {% endif %}
+          {% if dish.is_healthy %}
+          <span class="badge text-bg-info">Saludable</span>
+          {% else %}
+          <span class="badge text-bg-warning">Con alertas</span>
+          {% endif %}
+        </td>
+        <td class="d-flex gap-2">
+          <a class="btn btn-sm btn-outline-primary" href="/dishes/{{ dish.id }}/edit">Editar</a>
+          <form method="post" action="/dishes/{{ dish.id }}/delete" onsubmit="return confirm('Eliminar plato?');">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-center py-4 text-muted">No hay platos que coincidan con el filtro.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 px-3 py-3 border-top">
+  <div class="small text-muted">
+    Mostrando {{ start_item }}-{{ end_item }} de {{ total_items }} platos
+  </div>
+  <nav aria-label="Paginacion platos">
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if not has_prev %}disabled{% endif %}">
+        <a
+          class="page-link"
+          href="{{ base_path }}?{{ query_base }}&page={{ prev_page }}"
+          data-page="{{ prev_page }}"
+          aria-label="Anterior"
+        >
+          Anterior
+        </a>
+      </li>
+      {% for p in page_numbers %}
+      <li class="page-item {% if p == page %}active{% endif %}">
+        <a class="page-link" href="{{ base_path }}?{{ query_base }}&page={{ p }}" data-page="{{ p }}">{{ p }}</a>
+      </li>
+      {% endfor %}
+      <li class="page-item {% if not has_next %}disabled{% endif %}">
+        <a
+          class="page-link"
+          href="{{ base_path }}?{{ query_base }}&page={{ next_page }}"
+          data-page="{{ next_page }}"
+          aria-label="Siguiente"
+        >
+          Siguiente
+        </a>
+      </li>
+    </ul>
+  </nav>
+</div>

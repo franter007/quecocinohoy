@@ -10,77 +10,154 @@
 
 <section class="card shadow-sm mb-4">
   <div class="card-body">
-    <form method="get" action="/dishes" class="row g-2 align-items-end">
+    <form method="get" action="/dishes" id="dishesFilterForm" class="row g-2 align-items-end">
       <div class="col-md-6">
         <label class="form-label">Buscar por nombre</label>
-        <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="Ej. pollo guisado">
+        <input class="form-control" type="text" name="q" id="dishSearchInput" value="{{ q }}" placeholder="Ej. pollo guisado" autocomplete="off">
       </div>
       <div class="col-md-4">
         <label class="form-label">Tipo</label>
-        <select class="form-select" name="meal_type">
+        <select class="form-select" name="meal_type" id="dishMealTypeSelect">
           <option value="">Todos</option>
           {% for mt in meal_types %}
           <option value="{{ mt }}" {% if meal_type == mt %}selected{% endif %}>{{ meal_labels[mt] }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2 d-grid">
+      <div class="col-md-1">
+        <label class="form-label">Por pagina</label>
+        <select class="form-select" name="per_page" id="dishPerPageSelect">
+          {% for size in [10, 20, 40, 60] %}
+          <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-1 d-grid">
         <button class="btn btn-outline-primary" type="submit">Filtrar</button>
       </div>
+      <input type="hidden" name="page" id="dishPageInput" value="{{ page }}">
     </form>
+    <p class="small text-muted mt-2 mb-0">La busqueda se actualiza automaticamente mientras escribes.</p>
   </div>
 </section>
 
 <section class="card shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Tipo</th>
-          <th>Costo por porcion</th>
-          <th>Calorias</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for dish in dishes %}
-        <tr>
-          <td>
-            <div class="fw-semibold">{{ dish.name }}</div>
-            <div class="small text-muted">{{ dish.ingredients }}</div>
-          </td>
-          <td>{{ meal_labels[dish.meal_type] }}</td>
-          <td>S/ {{ "%.2f"|format(dish.cost_per_serving) }}</td>
-          <td>{{ dish.calories }}</td>
-          <td>
-            {% if dish.is_active %}
-            <span class="badge text-bg-success">Activo</span>
-            {% else %}
-            <span class="badge text-bg-secondary">Inactivo</span>
-            {% endif %}
-            {% if dish.is_healthy %}
-            <span class="badge text-bg-info">Saludable</span>
-            {% else %}
-            <span class="badge text-bg-warning">Con alertas</span>
-            {% endif %}
-          </td>
-          <td class="d-flex gap-2">
-            <a class="btn btn-sm btn-outline-primary" href="/dishes/{{ dish.id }}/edit">Editar</a>
-            <form method="post" action="/dishes/{{ dish.id }}/delete" onsubmit="return confirm('Eliminar plato?');">
-              <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="6" class="text-center py-4 text-muted">No hay platos que coincidan con el filtro.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="dishesResults">
+    {% include "partials/dishes_table.html" %}
   </div>
 </section>
-{% endblock %}
 
+<script>
+  (function () {
+    var form = document.getElementById("dishesFilterForm");
+    var results = document.getElementById("dishesResults");
+    var searchInput = document.getElementById("dishSearchInput");
+    var mealTypeSelect = document.getElementById("dishMealTypeSelect");
+    var perPageSelect = document.getElementById("dishPerPageSelect");
+    var pageInput = document.getElementById("dishPageInput");
+    var endpoint = "{{ results_endpoint }}";
+    var basePath = "{{ base_path }}";
+    var debounceTimer = null;
+    var activeController = null;
+
+    if (!form || !results || !searchInput || !mealTypeSelect || !perPageSelect || !pageInput) {
+      return;
+    }
+
+    function buildParams(pageOverride) {
+      var page = pageOverride || Number(pageInput.value) || 1;
+      var params = new URLSearchParams();
+      params.set("q", searchInput.value || "");
+      params.set("meal_type", mealTypeSelect.value || "");
+      params.set("per_page", perPageSelect.value || "20");
+      params.set("page", String(page));
+      return params;
+    }
+
+    function syncAddressBar(params) {
+      var url = basePath + "?" + params.toString();
+      window.history.replaceState({}, "", url);
+    }
+
+    function bindPagerLinks() {
+      var links = results.querySelectorAll("a[data-page]");
+      links.forEach(function (link) {
+        link.addEventListener("click", function (event) {
+          var parentItem = link.closest(".page-item");
+          if (parentItem && parentItem.classList.contains("disabled")) {
+            event.preventDefault();
+            return;
+          }
+          event.preventDefault();
+          var page = Number(link.getAttribute("data-page") || "1");
+          pageInput.value = String(page);
+          fetchResults(page);
+        });
+      });
+    }
+
+    function fetchResults(pageOverride) {
+      var params = buildParams(pageOverride);
+      if (activeController) {
+        activeController.abort();
+      }
+      activeController = new AbortController();
+      var requestUrl = endpoint + "?" + params.toString();
+      fetch(requestUrl, {
+        method: "GET",
+        headers: { "X-Requested-With": "fetch" },
+        signal: activeController.signal,
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error("No se pudo actualizar la lista");
+          }
+          return response.text();
+        })
+        .then(function (html) {
+          results.innerHTML = html;
+          pageInput.value = params.get("page") || "1";
+          syncAddressBar(params);
+          bindPagerLinks();
+        })
+        .catch(function (error) {
+          if (error.name !== "AbortError") {
+            console.error(error);
+          }
+        });
+    }
+
+    function debounceFetch(pageOverride) {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(function () {
+        fetchResults(pageOverride);
+      }, 250);
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      pageInput.value = "1";
+      fetchResults(1);
+    });
+
+    searchInput.addEventListener("input", function () {
+      pageInput.value = "1";
+      debounceFetch(1);
+    });
+
+    mealTypeSelect.addEventListener("change", function () {
+      pageInput.value = "1";
+      fetchResults(1);
+    });
+
+    perPageSelect.addEventListener("change", function () {
+      pageInput.value = "1";
+      fetchResults(1);
+    });
+
+    bindPagerLinks();
+  })();
+</script>
+{% endblock %}
