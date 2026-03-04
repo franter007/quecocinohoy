@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote_plus, urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -1226,6 +1226,11 @@ async def security_submit(request: Request, db: Session = Depends(get_db)):
 
     save_security_settings(db, cleaned_values)
     return RedirectResponse(url="/security?saved=1", status_code=303)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(BASE_DIR / "static" / "favicon.ico", media_type="image/x-icon")
 
 
 @app.get("/health")
