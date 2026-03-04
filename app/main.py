@@ -76,7 +76,10 @@ MEAL_LABELS = {
     "refresco": "Refresco",
 }
 
-PUBLIC_PATHS = {"/login", "/health"}
+# Rutas publicas que no deben forzar redireccion al login.
+# Incluimos favicon/robots para evitar redirecciones secundarias que pueden
+# refrescar el nonce del formulario y causar falsos "sesion expirada".
+PUBLIC_PATHS = {"/login", "/health", "/favicon.ico", "/robots.txt"}
 PUBLIC_PATH_PREFIXES = ("/static",)
 SETTINGS = get_settings()
 
@@ -294,7 +297,8 @@ def _validate_login_nonce(request: Request, submitted_nonce: str, max_age_second
     if not submitted_nonce or submitted_nonce != expected:
         return False
     age = int(time.time()) - int(issued_at)
-    if age < 0 or age > max_age_seconds:
+    # Tolera pequeno desfase de reloj entre instancias de contenedor.
+    if age < -30 or age > max_age_seconds:
         return False
     return True
 

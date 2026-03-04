@@ -154,39 +154,40 @@ Regla de persistencia:
 - Muestra beneficios y advertencias nutricionales (perjuicios).
 - Permite reportes diarios, semanales, mensuales y por rango de fechas.
 
-## Despliegue en Azure Container Apps (basico)
+## Despliegue en Azure Container Apps (Cloud Shell, bajo costo)
 
-Prerequisitos:
+Este repo incluye un script reutilizable: `deploy.sh`.
 
-- Docker Desktop activo
-- Azure CLI autenticado (`az login`)
-- Resource Group y ACR disponibles
+Que hace:
 
-Variables de ejemplo:
+- Usa `westus3` por defecto (puedes cambiar con `LOCATION=...`).
+- Crea/reutiliza Resource Group, Container Apps Environment, App y PostgreSQL.
+- Despliega con `az containerapp up --source .` (evita el flujo `--repo` que intenta crear Service Principal/GitHub Actions).
+- Configura variables de entorno, incluyendo `DATABASE_URL` para PostgreSQL.
 
-- Copia `.env.example` y define secretos reales.
-- En produccion usa `LOGIN_GUARD_TRUST_LOCALHOST=0`.
-- Cambia `SESSION_SECRET_KEY`.
+Paso a paso:
 
-Comandos ejemplo:
+1. Abre Azure Cloud Shell y clona el repo:
 
 ```bash
-az acr build --registry <ACR_NAME> --image quecocinohoy:1.0.0 .
-
-az containerapp create \
-  --name quecocinohoy-app \
-  --resource-group <RG_NAME> \
-  --environment <ACA_ENV_NAME> \
-  --image <ACR_NAME>.azurecr.io/quecocinohoy:1.0.0 \
-  --target-port 8000 \
-  --ingress external \
-  --registry-server <ACR_NAME>.azurecr.io \
-  --min-replicas 1 \
-  --max-replicas 1 \
-  --env-vars SESSION_SECRET_KEY=<SECRET> ADMIN_INITIAL_PASSWORD=<SECRET> LOGIN_GUARD_TRUST_LOCALHOST=0
+git clone https://github.com/franter007/quecocinohoy.git
+cd quecocinohoy
 ```
 
-Importante sobre base de datos:
+2. Ejecuta el despliegue con defaults de bajo costo:
 
-- SQLite en `data/quecocinohoy.db` dentro del contenedor no es persistente entre reinstancias/revisiones.
-- Para produccion usa una BD administrada (recomendado) o monta almacenamiento persistente y apunta `DATABASE_URL`.
+```bash
+bash deploy.sh
+```
+
+3. Opcional: sobreescribe parametros sin editar el script:
+
+```bash
+LOCATION=westus3 APP_BASE=qch-prod PG_PASS='TuPass#Segura123' bash deploy.sh
+```
+
+Notas:
+
+- SQLite en `data/quecocinohoy.db` no es persistente en Container Apps.
+- En Azure, usa PostgreSQL (`DATABASE_URL`) para persistencia real.
+- Si el servidor PostgreSQL ya existe y quieres recalcular `DATABASE_URL`, ejecuta con `PG_PASS=...`.
