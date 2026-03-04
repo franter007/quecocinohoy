@@ -346,6 +346,30 @@ h6,
   box-shadow: 0 0 0 0.2rem var(--input-focus-ring);
 }
 
+.password-input-group .form-control {
+  border-right: 0;
+}
+
+.password-toggle-btn {
+  min-width: 2.9rem;
+  border-color: var(--input-border);
+  color: #5b647a;
+}
+
+.password-toggle-btn:hover,
+.password-toggle-btn:focus {
+  color: var(--app-primary-strong);
+  border-color: var(--input-focus);
+  background-color: var(--btn-outline-hover-bg);
+}
+
+.password-toggle-btn svg {
+  width: 1rem;
+  height: 1rem;
+  display: block;
+  margin: 0 auto;
+}
+
 .table {
   margin-bottom: 0;
 }

@@ -26,6 +26,7 @@ from app.services.auth import (
     PERMISSION_HOME,
     PERMISSION_MENU,
     PERMISSION_REPORTS,
+    PERMISSION_SECURITY,
     PERMISSION_USERS,
     ROLE_ADMIN,
     ROLE_LABELS,
@@ -34,6 +35,7 @@ from app.services.auth import (
     ensure_admin_user,
     has_permission,
     hash_password,
+    role_catalog,
     role_permissions,
 )
 from app.services.menu_export import (
@@ -201,7 +203,7 @@ def _permission_flags(role: str | None) -> dict[str, bool]:
         "can_manage_dishes": PERMISSION_DISHES in perms,
         "can_view_reports": PERMISSION_REPORTS in perms,
         "can_manage_users": PERMISSION_USERS in perms,
-        "can_manage_security": PERMISSION_USERS in perms,
+        "can_manage_security": PERMISSION_SECURITY in perms,
     }
 
 
@@ -1032,12 +1034,13 @@ def api_reports(
 def users_page(request: Request, db: Session = Depends(get_db)):
     _require_permission(request, PERMISSION_USERS)
     users = list(db.scalars(select(User).order_by(User.username)).all())
-    return _render(request, "users.html", {"users": users})
+    return _render(request, "users.html", {"users": users, "role_matrix": role_catalog()})
 
 
 @app.get("/users/new", response_class=HTMLResponse)
 def users_new_page(request: Request):
     _require_permission(request, PERMISSION_USERS)
+    role_matrix = role_catalog()
     return _render(
         request,
         "user_form.html",
@@ -1045,7 +1048,8 @@ def users_new_page(request: Request):
             "title": "Nuevo Usuario",
             "action": "/users/new",
             "user_obj": None,
-            "role_options": [{"key": role, "label": ROLE_LABELS[role]} for role in ROLE_ORDER],
+            "role_options": role_matrix,
+            "role_matrix": role_matrix,
             "error": "",
         },
     )
@@ -1076,6 +1080,7 @@ def users_new_submit(
         error = "Ese nombre de usuario ya existe"
 
     if error:
+        role_matrix = role_catalog()
         return _render(
             request,
             "user_form.html",
@@ -1083,7 +1088,8 @@ def users_new_submit(
                 "title": "Nuevo Usuario",
                 "action": "/users/new",
                 "user_obj": {"username": clean_username, "full_name": full_name, "role": role, "is_active": active_flag},
-                "role_options": [{"key": item, "label": ROLE_LABELS[item]} for item in ROLE_ORDER],
+                "role_options": role_matrix,
+                "role_matrix": role_matrix,
                 "error": error,
             },
             status_code=400,
@@ -1109,6 +1115,7 @@ def users_edit_page(user_id: int, request: Request, db: Session = Depends(get_db
     user_obj = db.get(User, user_id)
     if not user_obj:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    role_matrix = role_catalog()
     return _render(
         request,
         "user_form.html",
@@ -1116,7 +1123,8 @@ def users_edit_page(user_id: int, request: Request, db: Session = Depends(get_db
             "title": "Editar Usuario",
             "action": f"/users/{user_id}/edit",
             "user_obj": user_obj,
-            "role_options": [{"key": role, "label": ROLE_LABELS[role]} for role in ROLE_ORDER],
+            "role_options": role_matrix,
+            "role_matrix": role_matrix,
             "error": "",
         },
     )
@@ -1163,6 +1171,7 @@ def users_edit_submit(
         error = "No puedes quitarte permisos de administrador ni desactivarte a ti mismo"
 
     if error:
+        role_matrix = role_catalog()
         return _render(
             request,
             "user_form.html",
@@ -1176,7 +1185,8 @@ def users_edit_submit(
                     "role": role,
                     "is_active": active_flag,
                 },
-                "role_options": [{"key": item, "label": ROLE_LABELS[item]} for item in ROLE_ORDER],
+                "role_options": role_matrix,
+                "role_matrix": role_matrix,
                 "error": error,
             },
             status_code=400,
@@ -1194,7 +1204,7 @@ def users_edit_submit(
 
 @app.get("/security", response_class=HTMLResponse)
 def security_page(request: Request, saved: str | None = None, db: Session = Depends(get_db)):
-    _require_permission(request, PERMISSION_USERS)
+    _require_permission(request, PERMISSION_SECURITY)
     return _render(
         request,
         "security.html",
@@ -1208,7 +1218,7 @@ def security_page(request: Request, saved: str | None = None, db: Session = Depe
 
 @app.post("/security", response_class=HTMLResponse)
 async def security_submit(request: Request, db: Session = Depends(get_db)):
-    _require_permission(request, PERMISSION_USERS)
+    _require_permission(request, PERMISSION_SECURITY)
     form = await request.form()
     payload = {key: str(value) for key, value in form.items()}
     cleaned_values, errors = validate_security_form_values(payload)

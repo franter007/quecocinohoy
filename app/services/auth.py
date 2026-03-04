@@ -12,16 +12,70 @@ from app.config import get_settings
 from app.models import User
 
 ROLE_ADMIN = "admin"
+ROLE_OPERATIONS_MANAGER = "operations_manager"
+ROLE_MENU_OPERATOR = "menu_operator"
+ROLE_CATALOG_EDITOR = "catalog_editor"
+ROLE_NUTRITION_ANALYST = "nutrition_analyst"
+ROLE_FINANCE_ANALYST = "finance_analyst"
+ROLE_SECURITY_ADMIN = "security_admin"
+ROLE_VIEWER = "viewer"
+
+# Roles legacy mantenidos por compatibilidad con usuarios antiguos.
 ROLE_MENU_MAINTAINER = "menu_maintainer"
 ROLE_MENU_ONLY = "menu_only"
 ROLE_HOME_ONLY = "home_only"
 
-ROLE_ORDER = (ROLE_ADMIN, ROLE_MENU_MAINTAINER, ROLE_MENU_ONLY, ROLE_HOME_ONLY)
+ROLE_ORDER = (
+    ROLE_ADMIN,
+    ROLE_OPERATIONS_MANAGER,
+    ROLE_MENU_OPERATOR,
+    ROLE_CATALOG_EDITOR,
+    ROLE_NUTRITION_ANALYST,
+    ROLE_FINANCE_ANALYST,
+    ROLE_SECURITY_ADMIN,
+    ROLE_VIEWER,
+    ROLE_MENU_MAINTAINER,
+    ROLE_MENU_ONLY,
+    ROLE_HOME_ONLY,
+)
 ROLE_LABELS = {
     ROLE_ADMIN: "Administrador",
+    ROLE_OPERATIONS_MANAGER: "Gestor Operaciones",
+    ROLE_MENU_OPERATOR: "Operador Menu",
+    ROLE_CATALOG_EDITOR: "Editor de Platos",
+    ROLE_NUTRITION_ANALYST: "Analista Nutricion",
+    ROLE_FINANCE_ANALYST: "Analista Finanzas",
+    ROLE_SECURITY_ADMIN: "Administrador Seguridad",
+    ROLE_VIEWER: "Solo Lectura Inicio",
     ROLE_MENU_MAINTAINER: "Mantenimiento Menu",
     ROLE_MENU_ONLY: "Solo Menu",
     ROLE_HOME_ONLY: "Solo Home",
+}
+ROLE_DESCRIPTIONS = {
+    ROLE_ADMIN: "Control total del sistema, usuarios y seguridad.",
+    ROLE_OPERATIONS_MANAGER: "Operacion diaria completa de menu, platos y reportes.",
+    ROLE_MENU_OPERATOR: "Genera y consulta menu semanal sin editar catalogo.",
+    ROLE_CATALOG_EDITOR: "Administra catalogo de platos sin acceso a reportes ni usuarios.",
+    ROLE_NUTRITION_ANALYST: "Consulta menu y reportes para analisis nutricional.",
+    ROLE_FINANCE_ANALYST: "Consulta reportes de costo sin gestion de menu/platos.",
+    ROLE_SECURITY_ADMIN: "Gestiona usuarios y politicas de seguridad, sin operacion culinaria.",
+    ROLE_VIEWER: "Acceso solo a la pantalla de inicio.",
+    ROLE_MENU_MAINTAINER: "Legacy: equivalente funcional a Gestor Operaciones.",
+    ROLE_MENU_ONLY: "Legacy: equivalente funcional a Operador Menu.",
+    ROLE_HOME_ONLY: "Legacy: equivalente funcional a Solo Lectura Inicio.",
+}
+ROLE_IS_LEGACY = {
+    ROLE_ADMIN: False,
+    ROLE_OPERATIONS_MANAGER: False,
+    ROLE_MENU_OPERATOR: False,
+    ROLE_CATALOG_EDITOR: False,
+    ROLE_NUTRITION_ANALYST: False,
+    ROLE_FINANCE_ANALYST: False,
+    ROLE_SECURITY_ADMIN: False,
+    ROLE_VIEWER: False,
+    ROLE_MENU_MAINTAINER: True,
+    ROLE_MENU_ONLY: True,
+    ROLE_HOME_ONLY: True,
 }
 
 PERMISSION_HOME = "home:view"
@@ -29,9 +83,41 @@ PERMISSION_MENU = "menu:view"
 PERMISSION_DISHES = "dishes:manage"
 PERMISSION_REPORTS = "reports:view"
 PERMISSION_USERS = "users:manage"
+PERMISSION_SECURITY = "security:manage"
+PERMISSION_ORDER = (
+    PERMISSION_HOME,
+    PERMISSION_MENU,
+    PERMISSION_DISHES,
+    PERMISSION_REPORTS,
+    PERMISSION_USERS,
+    PERMISSION_SECURITY,
+)
+PERMISSION_LABELS = {
+    PERMISSION_HOME: "Inicio",
+    PERMISSION_MENU: "Menu semanal",
+    PERMISSION_DISHES: "Platos",
+    PERMISSION_REPORTS: "Reportes",
+    PERMISSION_USERS: "Usuarios",
+    PERMISSION_SECURITY: "Seguridad",
+}
 
 ROLE_PERMISSIONS = {
-    ROLE_ADMIN: {PERMISSION_HOME, PERMISSION_MENU, PERMISSION_DISHES, PERMISSION_REPORTS, PERMISSION_USERS},
+    ROLE_ADMIN: {
+        PERMISSION_HOME,
+        PERMISSION_MENU,
+        PERMISSION_DISHES,
+        PERMISSION_REPORTS,
+        PERMISSION_USERS,
+        PERMISSION_SECURITY,
+    },
+    ROLE_OPERATIONS_MANAGER: {PERMISSION_HOME, PERMISSION_MENU, PERMISSION_DISHES, PERMISSION_REPORTS},
+    ROLE_MENU_OPERATOR: {PERMISSION_HOME, PERMISSION_MENU},
+    ROLE_CATALOG_EDITOR: {PERMISSION_HOME, PERMISSION_DISHES},
+    ROLE_NUTRITION_ANALYST: {PERMISSION_HOME, PERMISSION_MENU, PERMISSION_REPORTS},
+    ROLE_FINANCE_ANALYST: {PERMISSION_HOME, PERMISSION_REPORTS},
+    ROLE_SECURITY_ADMIN: {PERMISSION_HOME, PERMISSION_USERS, PERMISSION_SECURITY},
+    ROLE_VIEWER: {PERMISSION_HOME},
+    # Compatibilidad
     ROLE_MENU_MAINTAINER: {PERMISSION_HOME, PERMISSION_MENU, PERMISSION_DISHES, PERMISSION_REPORTS},
     ROLE_MENU_ONLY: {PERMISSION_HOME, PERMISSION_MENU},
     ROLE_HOME_ONLY: {PERMISSION_HOME},
@@ -49,6 +135,24 @@ def role_permissions(role: str) -> set[str]:
 
 def has_permission(role: str, permission: str) -> bool:
     return permission in role_permissions(role)
+
+
+def role_access_labels(role: str) -> list[str]:
+    perms = role_permissions(role)
+    return [PERMISSION_LABELS[item] for item in PERMISSION_ORDER if item in perms]
+
+
+def role_catalog() -> list[dict[str, object]]:
+    return [
+        {
+            "key": role,
+            "label": ROLE_LABELS.get(role, role),
+            "description": ROLE_DESCRIPTIONS.get(role, ""),
+            "access_labels": role_access_labels(role),
+            "is_legacy": ROLE_IS_LEGACY.get(role, False),
+        }
+        for role in ROLE_ORDER
+    ]
 
 
 def hash_password(password: str, iterations: int = 240_000) -> str:

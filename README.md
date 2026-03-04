@@ -99,10 +99,22 @@ El contenedor expone `0.0.0.0` y usa `PORT` (por defecto `8000`), compatible con
 
 ## Roles y permisos
 
-- `admin`: acceso total + gestion de usuarios.
-- `menu_maintainer`: home, menu, reportes y mantenimiento de platos.
-- `menu_only`: home y menu semanal.
-- `home_only`: acceso solo a la pantalla de inicio.
+Roles actuales recomendados:
+
+- `admin`: acceso total (inicio, menu, platos, reportes, usuarios, seguridad).
+- `operations_manager`: operacion completa de menu/platos/reportes (sin usuarios/seguridad).
+- `menu_operator`: inicio + menu semanal.
+- `catalog_editor`: inicio + mantenimiento de platos.
+- `nutrition_analyst`: inicio + menu + reportes.
+- `finance_analyst`: inicio + reportes.
+- `security_admin`: inicio + usuarios + seguridad.
+- `viewer`: solo inicio.
+
+Roles legacy soportados por compatibilidad:
+
+- `menu_maintainer` (equivalente funcional a `operations_manager`).
+- `menu_only` (equivalente funcional a `menu_operator`).
+- `home_only` (equivalente funcional a `viewer`).
 
 Usuario inicial por defecto:
 

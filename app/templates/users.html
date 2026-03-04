@@ -42,5 +42,39 @@
     </table>
   </div>
 </section>
-{% endblock %}
 
+<section class="card shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="h5 mb-3">Matriz de roles y accesos</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Rol</th>
+            <th>Descripcion</th>
+            <th>Accesos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for role in role_matrix %}
+          <tr>
+            <td>
+              <span class="fw-semibold">{{ role.label }}</span>
+              {% if role.is_legacy %}
+              <span class="badge text-bg-secondary ms-1">Legacy</span>
+              {% endif %}
+            </td>
+            <td class="small text-muted">{{ role.description }}</td>
+            <td>
+              {% for access in role.access_labels %}
+              <span class="badge text-bg-light border me-1">{{ access }}</span>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

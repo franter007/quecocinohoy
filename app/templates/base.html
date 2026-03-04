@@ -127,5 +127,52 @@
       });
     })();
   </script>
+  <script>
+    (function () {
+      var toggles = document.querySelectorAll("[data-password-toggle]");
+      if (!toggles.length) {
+        return;
+      }
+
+      toggles.forEach(function (button) {
+        var targetId = button.getAttribute("data-target");
+        if (!targetId) {
+          return;
+        }
+
+        var input = document.getElementById(targetId);
+        if (!input) {
+          return;
+        }
+
+        var eyeOpen = button.querySelector("[data-eye-open]");
+        var eyeClosed = button.querySelector("[data-eye-closed]");
+
+        function syncButton() {
+          var visible = input.type === "text";
+          button.setAttribute("aria-label", visible ? "Ocultar contrasena" : "Mostrar contrasena");
+          button.setAttribute("title", visible ? "Ocultar contrasena" : "Mostrar contrasena");
+          if (eyeOpen) {
+            eyeOpen.classList.toggle("d-none", visible);
+          }
+          if (eyeClosed) {
+            eyeClosed.classList.toggle("d-none", !visible);
+          }
+        }
+
+        button.addEventListener("click", function () {
+          input.type = input.type === "password" ? "text" : "password";
+          syncButton();
+          input.focus();
+          if (typeof input.setSelectionRange === "function") {
+            var pos = input.value.length;
+            input.setSelectionRange(pos, pos);
+          }
+        });
+
+        syncButton();
+      });
+    })();
+  </script>
 </body>
 </html>
