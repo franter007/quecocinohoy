@@ -115,6 +115,19 @@
             {% if row.meals[meal_type] %}
             <div class="fw-semibold">{{ row.meals[meal_type].dish.name }}</div>
             <div class="small text-muted">S/ {{ "%.2f"|format(row.meals[meal_type].estimated_cost) }}</div>
+            {% if show_nutrition_details %}
+            <div class="small text-muted mt-1">
+              Cal: {{ row.meals[meal_type].dish.calories }}
+              | Prot: {{ "%.1f"|format(row.meals[meal_type].dish.protein_g) }}g
+              | Carb: {{ "%.1f"|format(row.meals[meal_type].dish.carbs_g) }}g
+            </div>
+            <div class="small text-muted">
+              Grasa: {{ "%.1f"|format(row.meals[meal_type].dish.fat_g) }}g
+              | Fibra: {{ "%.1f"|format(row.meals[meal_type].dish.fiber_g) }}g
+              | Azucar: {{ "%.1f"|format(row.meals[meal_type].dish.sugar_g) }}g
+              | Sodio: {{ "%.1f"|format(row.meals[meal_type].dish.sodium_mg) }}mg
+            </div>
+            {% endif %}
             <div class="small {% if row.meals[meal_type].dish.is_healthy %}text-success{% else %}text-warning{% endif %}">
               {{ row.meals[meal_type].dish.warnings }}
             </div>

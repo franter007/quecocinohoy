@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import quote_plus, urlencode
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -23,8 +23,11 @@ from app.models import Dish, MEAL_TYPES, User, WeeklyMenu
 from app.seed_data import seed_default_dishes
 from app.services.auth import (
     PERMISSION_DISHES,
+    PERMISSION_DISHES_ADMIN,
+    PERMISSION_DISHES_WRITE,
     PERMISSION_HOME,
     PERMISSION_MENU,
+    PERMISSION_MENU_WRITE,
     PERMISSION_REPORTS,
     PERMISSION_SECURITY,
     PERMISSION_USERS,
@@ -36,7 +39,6 @@ from app.services.auth import (
     has_permission,
     hash_password,
     role_catalog,
-    role_permissions,
 )
 from app.services.menu_export import (
     build_menu_pdf_bytes,
@@ -70,6 +72,7 @@ from app.services.runtime_settings import (
     save_security_settings,
     validate_security_form_values,
 )
+from app.services.ui_preferences import get_show_nutrition_details, save_show_nutrition_details
 
 MEAL_LABELS = {
     "desayuno": "Desayuno",
@@ -145,6 +148,7 @@ async def auth_middleware(request: Request, call_next):
             "username": user.username,
             "full_name": user.full_name,
             "role": user.role,
+            "show_nutrition_details": get_show_nutrition_details(session, user.id),
         }
 
     return await call_next(request)
@@ -196,14 +200,14 @@ def _current_user(request: Request) -> dict | None:
 
 
 def _permission_flags(role: str | None) -> dict[str, bool]:
-    perms = role_permissions(role or "")
+    current_role = role or ""
     return {
-        "can_view_home": PERMISSION_HOME in perms,
-        "can_view_menu": PERMISSION_MENU in perms,
-        "can_manage_dishes": PERMISSION_DISHES in perms,
-        "can_view_reports": PERMISSION_REPORTS in perms,
-        "can_manage_users": PERMISSION_USERS in perms,
-        "can_manage_security": PERMISSION_SECURITY in perms,
+        "can_view_home": has_permission(current_role, PERMISSION_HOME),
+        "can_view_menu": has_permission(current_role, PERMISSION_MENU),
+        "can_manage_dishes": has_permission(current_role, PERMISSION_DISHES),
+        "can_view_reports": has_permission(current_role, PERMISSION_REPORTS),
+        "can_manage_users": has_permission(current_role, PERMISSION_USERS),
+        "can_manage_security": has_permission(current_role, PERMISSION_SECURITY),
     }
 
 
@@ -213,6 +217,7 @@ def _render(request: Request, template_name: str, context: dict, status_code: in
     base_context = {
         "request": request,
         "current_user": user,
+        "show_nutrition_details": bool(user and user.get("show_nutrition_details")),
         "role_labels": ROLE_LABELS,
         **_permission_flags(role),
     }
@@ -344,6 +349,25 @@ def _build_dishes_list_context(
         "end_item": end_item,
         "query_base": base_query,
     }
+
+
+def _build_dishes_state_url(q: str, meal_type: str, page: int, per_page: int) -> str:
+    params = urlencode(
+        {
+            "q": q,
+            "meal_type": meal_type,
+            "per_page": per_page,
+            "page": page,
+        }
+    )
+    return f"/dishes?{params}"
+
+
+def _safe_dishes_next_path(value: str | None) -> str:
+    next_path = _safe_next_path(value)
+    if not next_path.startswith("/dishes"):
+        return "/dishes"
+    return next_path
 
 
 LOGIN_NONCE_KEY = "login_form_nonce"
@@ -578,6 +602,14 @@ def dishes_page(
 ):
     _require_permission(request, PERMISSION_DISHES)
     list_context = _build_dishes_list_context(db, q=q, meal_type=meal_type, page=page, per_page=per_page)
+    current_user = _current_user(request) or {}
+    role = str(current_user.get("role", ""))
+    current_list_url = _build_dishes_state_url(
+        q=list_context["q"],
+        meal_type=list_context["meal_type"],
+        page=list_context["page"],
+        per_page=list_context["per_page"],
+    )
     return _render(
         request,
         "dishes.html",
@@ -586,6 +618,11 @@ def dishes_page(
             "meal_labels": MEAL_LABELS,
             "results_endpoint": "/dishes/partial",
             "base_path": "/dishes",
+            "new_dish_url": f"/dishes/new?{urlencode({'next': current_list_url})}",
+            "current_list_url": current_list_url,
+            "current_list_next": urlencode({"next": current_list_url}),
+            "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE),
+            "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN),
             **list_context,
         },
     )
@@ -602,20 +639,33 @@ def dishes_partial(
 ):
     _require_permission(request, PERMISSION_DISHES)
     list_context = _build_dishes_list_context(db, q=q, meal_type=meal_type, page=page, per_page=per_page)
+    current_user = _current_user(request) or {}
+    role = str(current_user.get("role", ""))
+    current_list_url = _build_dishes_state_url(
+        q=list_context["q"],
+        meal_type=list_context["meal_type"],
+        page=list_context["page"],
+        per_page=list_context["per_page"],
+    )
     return templates.TemplateResponse(
         "partials/dishes_table.html",
         {
             "request": request,
             "meal_labels": MEAL_LABELS,
             "base_path": "/dishes",
+            "current_list_url": current_list_url,
+            "current_list_next": urlencode({"next": current_list_url}),
+            "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE),
+            "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN),
             **list_context,
         },
     )
 
 
 @app.get("/dishes/new", response_class=HTMLResponse)
-def new_dish_page(request: Request):
-    _require_permission(request, PERMISSION_DISHES)
+def new_dish_page(request: Request, next: str | None = None):
+    _require_permission(request, PERMISSION_DISHES_WRITE)
+    next_path = _safe_dishes_next_path(next)
     return _render(
         request,
         "dish_form.html",
@@ -625,6 +675,7 @@ def new_dish_page(request: Request):
             "meal_labels": MEAL_LABELS,
             "action": "/dishes/new",
             "title": "Nuevo Plato",
+            "next_url": next_path,
         },
     )
 
@@ -646,9 +697,10 @@ def create_dish(
     benefits: str = Form(""),
     warnings: str = Form(""),
     is_active: str | None = Form(None),
+    next: str = Form("/dishes"),
     db: Session = Depends(get_db),
 ):
-    _require_permission(request, PERMISSION_DISHES)
+    _require_permission(request, PERMISSION_DISHES_WRITE)
 
     if meal_type not in MEAL_TYPES:
         raise HTTPException(status_code=400, detail="Tipo de comida invalido")
@@ -673,16 +725,22 @@ def create_dish(
     )
     db.add(dish)
     db.commit()
-    return RedirectResponse(url="/dishes", status_code=303)
+    return RedirectResponse(url=_safe_dishes_next_path(next), status_code=303)
 
 
 @app.get("/dishes/{dish_id}/edit", response_class=HTMLResponse)
-def edit_dish_page(dish_id: int, request: Request, db: Session = Depends(get_db)):
-    _require_permission(request, PERMISSION_DISHES)
+def edit_dish_page(
+    dish_id: int,
+    request: Request,
+    next: str | None = None,
+    db: Session = Depends(get_db),
+):
+    _require_permission(request, PERMISSION_DISHES_WRITE)
 
     dish = db.get(Dish, dish_id)
     if not dish:
         raise HTTPException(status_code=404, detail="Plato no encontrado")
+    next_path = _safe_dishes_next_path(next)
     return _render(
         request,
         "dish_form.html",
@@ -692,6 +750,34 @@ def edit_dish_page(dish_id: int, request: Request, db: Session = Depends(get_db)
             "meal_labels": MEAL_LABELS,
             "action": f"/dishes/{dish_id}/edit",
             "title": "Editar Plato",
+            "next_url": next_path,
+        },
+    )
+
+
+@app.get("/dishes/{dish_id}/edit/modal", response_class=HTMLResponse)
+def edit_dish_modal_form(
+    dish_id: int,
+    request: Request,
+    next: str | None = None,
+    db: Session = Depends(get_db),
+):
+    _require_permission(request, PERMISSION_DISHES_WRITE)
+
+    dish = db.get(Dish, dish_id)
+    if not dish:
+        raise HTTPException(status_code=404, detail="Plato no encontrado")
+    next_path = _safe_dishes_next_path(next)
+    return templates.TemplateResponse(
+        "partials/dish_edit_modal_form.html",
+        {
+            "request": request,
+            "dish": dish,
+            "meal_types": MEAL_TYPES,
+            "meal_labels": MEAL_LABELS,
+            "action": f"/dishes/{dish_id}/edit",
+            "next_url": next_path,
+            "full_edit_url": f"/dishes/{dish_id}/edit?{urlencode({'next': next_path})}",
         },
     )
 
@@ -714,9 +800,10 @@ def edit_dish(
     benefits: str = Form(""),
     warnings: str = Form(""),
     is_active: str | None = Form(None),
+    next: str = Form("/dishes"),
     db: Session = Depends(get_db),
 ):
-    _require_permission(request, PERMISSION_DISHES)
+    _require_permission(request, PERMISSION_DISHES_WRITE)
 
     if meal_type not in MEAL_TYPES:
         raise HTTPException(status_code=400, detail="Tipo de comida invalido")
@@ -742,18 +829,28 @@ def edit_dish(
         is_active=_parse_bool(is_active),
     )
     db.commit()
-    return RedirectResponse(url="/dishes", status_code=303)
+    if request.headers.get("x-requested-with") == "fetch":
+        return JSONResponse({"ok": True, "redirect_to": _safe_dishes_next_path(next)})
+    return RedirectResponse(url=_safe_dishes_next_path(next), status_code=303)
 
 
 @app.post("/dishes/{dish_id}/delete")
-def delete_dish(request: Request, dish_id: int, db: Session = Depends(get_db)):
-    _require_permission(request, PERMISSION_DISHES)
+def delete_dish(
+    request: Request,
+    dish_id: int,
+    next: str = Form("/dishes"),
+    db: Session = Depends(get_db),
+):
+    _require_permission(request, PERMISSION_DISHES_ADMIN)
 
     dish = db.get(Dish, dish_id)
     if dish:
         db.delete(dish)
         db.commit()
-    return RedirectResponse(url="/dishes", status_code=303)
+    next_path = _safe_dishes_next_path(next)
+    if request.headers.get("x-requested-with") == "fetch":
+        return JSONResponse({"ok": True, "redirect_to": next_path})
+    return RedirectResponse(url=next_path, status_code=303)
 
 
 @app.post("/menus/generate")
@@ -763,7 +860,7 @@ def generate_menu(
     force: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
-    _require_permission(request, PERMISSION_MENU)
+    _require_permission(request, PERMISSION_MENU_WRITE)
 
     requested = parse_date(week_start, normalize_week_start(date.today()))
     normalized = normalize_week_start(requested)
@@ -1028,6 +1125,36 @@ def api_reports(
     if end_date < start_date:
         start_date, end_date = end_date, start_date
     return build_cost_report(db, start_date, end_date)
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request, saved: str | None = None):
+    _require_permission(request, PERMISSION_HOME)
+    current_user = _current_user(request) or {}
+    return _render(
+        request,
+        "settings.html",
+        {
+            "saved": saved == "1",
+            "show_nutrition_details_setting": bool(current_user.get("show_nutrition_details")),
+        },
+    )
+
+
+@app.post("/settings")
+def settings_submit(
+    request: Request,
+    show_nutrition_details: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    _require_permission(request, PERMISSION_HOME)
+    current_user = _current_user(request) or {}
+    user_id = int(current_user.get("id", 0) or 0)
+    if user_id <= 0:
+        raise HTTPException(status_code=401, detail="Sesion invalida")
+
+    save_show_nutrition_details(db, user_id, _parse_bool(show_nutrition_details))
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
 @app.get("/users", response_class=HTMLResponse)

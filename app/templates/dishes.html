@@ -5,7 +5,9 @@
     <h1 class="h3 mb-1">Platos registrados</h1>
     <p class="text-muted mb-0">Crea, edita, elimina y busca platos por tipo de comida.</p>
   </div>
-  <a class="btn btn-primary" href="/dishes/new">Nuevo plato</a>
+  {% if can_write_dishes %}
+  <a class="btn btn-primary" href="{{ new_dish_url }}">Nuevo plato</a>
+  {% endif %}
 </section>
 
 <section class="card shadow-sm mb-4">
@@ -47,6 +49,20 @@
   </div>
 </section>
 
+<div class="modal fade" id="dishEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="h5 mb-0">Editar plato</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="dishEditModalBody">
+        <div class="text-muted small">Cargando formulario...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   (function () {
     var form = document.getElementById("dishesFilterForm");
@@ -59,9 +75,15 @@
     var basePath = "{{ base_path }}";
     var debounceTimer = null;
     var activeController = null;
+    var modalElement = document.getElementById("dishEditModal");
+    var modalBody = document.getElementById("dishEditModalBody");
+    var dishEditModal = null;
 
     if (!form || !results || !searchInput || !mealTypeSelect || !perPageSelect || !pageInput) {
       return;
+    }
+    if (modalElement && window.bootstrap && window.bootstrap.Modal) {
+      dishEditModal = new window.bootstrap.Modal(modalElement);
     }
 
     function buildParams(pageOverride) {
@@ -96,6 +118,128 @@
       });
     }
 
+    function currentPageFromResults() {
+      var activeLink = results.querySelector(".page-item.active a[data-page]");
+      if (activeLink) {
+        return Number(activeLink.getAttribute("data-page") || "1") || 1;
+      }
+      return Number(pageInput.value) || 1;
+    }
+
+    function bindDeleteForms() {
+      var forms = results.querySelectorAll("form[data-dish-delete]");
+      forms.forEach(function (formElement) {
+        formElement.addEventListener("submit", function (event) {
+          event.preventDefault();
+          var confirmText = formElement.getAttribute("data-confirm") || "Eliminar plato?";
+          if (!window.confirm(confirmText)) {
+            return;
+          }
+
+          var formData = new FormData(formElement);
+          fetch(formElement.action, {
+            method: "POST",
+            headers: { "X-Requested-With": "fetch" },
+            body: formData,
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("No se pudo eliminar el plato");
+              }
+              return response.json();
+            })
+            .then(function () {
+              fetchResults(currentPageFromResults());
+            })
+            .catch(function (error) {
+              console.error(error);
+            });
+        });
+      });
+    }
+
+    function bindEditFormSubmit(editForm) {
+      if (!editForm) {
+        return;
+      }
+      editForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var submitButton = editForm.querySelector("button[type='submit']");
+        if (submitButton) {
+          submitButton.disabled = true;
+        }
+        var formData = new FormData(editForm);
+        fetch(editForm.action, {
+          method: "POST",
+          headers: { "X-Requested-With": "fetch" },
+          body: formData,
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error("No se pudo guardar la edicion");
+            }
+            return response.json();
+          })
+          .then(function () {
+            if (dishEditModal) {
+              dishEditModal.hide();
+            }
+            fetchResults(currentPageFromResults());
+          })
+          .catch(function (error) {
+            console.error(error);
+            window.alert("No se pudo guardar el plato. Revisa los datos e intenta nuevamente.");
+          })
+          .finally(function () {
+            if (submitButton) {
+              submitButton.disabled = false;
+            }
+          });
+      });
+    }
+
+    function bindEditButtons() {
+      var links = results.querySelectorAll("a[data-dish-edit]");
+      links.forEach(function (link) {
+        link.addEventListener("click", function (event) {
+          if (!dishEditModal || !modalBody) {
+            return;
+          }
+          event.preventDefault();
+          var modalUrl = link.getAttribute("data-modal-url");
+          if (!modalUrl) {
+            return;
+          }
+          modalBody.innerHTML = "<div class='text-muted small'>Cargando formulario...</div>";
+          dishEditModal.show();
+          fetch(modalUrl, {
+            method: "GET",
+            headers: { "X-Requested-With": "fetch" },
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("No se pudo abrir el formulario de edicion");
+              }
+              return response.text();
+            })
+            .then(function (html) {
+              modalBody.innerHTML = html;
+              bindEditFormSubmit(modalBody.querySelector("form[data-dish-edit-form]"));
+            })
+            .catch(function (error) {
+              console.error(error);
+              modalBody.innerHTML = "<div class='alert alert-danger py-2 mb-0'>No se pudo cargar el formulario.</div>";
+            });
+        });
+      });
+    }
+
+    function bindDynamicActions() {
+      bindPagerLinks();
+      bindDeleteForms();
+      bindEditButtons();
+    }
+
     function fetchResults(pageOverride) {
       var params = buildParams(pageOverride);
       if (activeController) {
@@ -116,9 +260,10 @@
         })
         .then(function (html) {
           results.innerHTML = html;
-          pageInput.value = params.get("page") || "1";
-          syncAddressBar(params);
-          bindPagerLinks();
+          pageInput.value = String(currentPageFromResults());
+          var normalizedParams = buildParams(Number(pageInput.value) || 1);
+          syncAddressBar(normalizedParams);
+          bindDynamicActions();
         })
         .catch(function (error) {
           if (error.name !== "AbortError") {
@@ -157,7 +302,7 @@
       fetchResults(1);
     });
 
-    bindPagerLinks();
+    bindDynamicActions();
   })();
 </script>
 {% endblock %}

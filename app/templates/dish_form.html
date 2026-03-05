@@ -5,12 +5,13 @@
     <h1 class="h3 mb-1">{{ title }}</h1>
     <p class="text-muted mb-0">Completa datos de costo y valor nutricional del plato.</p>
   </div>
-  <a class="btn btn-outline-secondary" href="/dishes">Volver</a>
+  <a class="btn btn-outline-secondary" href="{{ next_url or '/dishes' }}">Volver</a>
 </section>
 
 <section class="card shadow-sm">
   <div class="card-body">
     <form action="{{ action }}" method="post" class="row g-3">
+      <input type="hidden" name="next" value="{{ next_url or '/dishes' }}">
       <div class="col-md-6">
         <label class="form-label">Nombre</label>
         <input class="form-control" type="text" name="name" value="{{ dish.name if dish else '' }}" required>
@@ -79,10 +80,9 @@
 
       <div class="col-12 d-flex gap-2">
         <button class="btn btn-primary" type="submit">Guardar</button>
-        <a class="btn btn-outline-secondary" href="/dishes">Cancelar</a>
+        <a class="btn btn-outline-secondary" href="{{ next_url or '/dishes' }}">Cancelar</a>
       </div>
     </form>
   </div>
 </section>
 {% endblock %}
-

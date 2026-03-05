@@ -53,6 +53,7 @@
             <th>Rol</th>
             <th>Descripcion</th>
             <th>Accesos</th>
+            <th>Tipo de acceso</th>
           </tr>
         </thead>
         <tbody>
@@ -69,6 +70,9 @@
               {% for access in role.access_labels %}
               <span class="badge text-bg-light border me-1">{{ access }}</span>
               {% endfor %}
+            </td>
+            <td>
+              <span class="badge text-bg-{{ role.access_type_style }}">{{ role.access_type_label }}</span>
             </td>
           </tr>
           {% endfor %}
