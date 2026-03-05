@@ -11,6 +11,11 @@
 {% if saved %}
 <div class="alert alert-success">Preferencias guardadas correctamente.</div>
 {% endif %}
+{% if nutrition_saved %}
+<div class="alert alert-success">
+  Reglas nutricionales guardadas. Se recalculo el estado saludable/con alertas en todos los platos.
+</div>
+{% endif %}
 
 <section class="card shadow-sm">
   <div class="card-body">
@@ -55,14 +60,54 @@
         <button class="btn btn-primary" type="submit">Guardar configuracion</button>
       </div>
     </form>
-    {% if can_manage_security %}
-    <hr>
-    <div class="small text-muted">
-      Para ajustar criterios de etiqueta
-      <strong>Saludable / Con alertas</strong>,
-      ve a <a href="/security">Seguridad y reglas nutricionales</a>.
-    </div>
-    {% endif %}
   </div>
 </section>
+
+{% if can_manage_security %}
+<section class="card shadow-sm mt-4">
+  <div class="card-body">
+    <h2 class="h5 mb-1">Configuracion del sistema: reglas nutricionales</h2>
+    <p class="text-muted small mb-3">
+      Ajusta criterios automaticos para beneficios, advertencias y etiqueta saludable.
+    </p>
+    <form method="post" action="/settings/nutrition" class="row g-3">
+      {% for field in nutrition_fields %}
+      <div class="col-lg-6">
+        <label class="form-label fw-semibold" for="nutrition-{{ field.key }}">{{ field.label }}</label>
+        <input
+          class="form-control"
+          id="nutrition-{{ field.key }}"
+          type="number"
+          name="{{ field.key }}"
+          value="{{ field.value }}"
+          min="{{ field.min_value }}"
+          max="{{ field.max_value }}"
+          step="1"
+          required
+        >
+        {% if nutrition_errors.get(field.key) %}
+        <div class="text-danger small mt-1">{{ nutrition_errors.get(field.key) }}</div>
+        {% endif %}
+        <div class="form-text mt-2">{{ field.description }}</div>
+        <small class="d-block text-muted">Ejemplo: {{ field.example }}</small>
+        <small class="d-block text-muted">Valor por defecto: {{ field.default_value }}</small>
+        <small class="d-block text-muted">
+          Valor efectivo actual: {{ field.effective_value }}
+          {% if field.is_overridden %}
+          (con override guardado)
+          {% else %}
+          (usando default)
+          {% endif %}
+        </small>
+      </div>
+      {% endfor %}
+
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Guardar reglas nutricionales</button>
+        <a class="btn btn-outline-secondary" href="/settings">Recargar valores</a>
+      </div>
+    </form>
+  </div>
+</section>
+{% endif %}
 {% endblock %}

@@ -1212,18 +1212,31 @@ def api_reports(
 
 
 @app.get("/settings", response_class=HTMLResponse)
-def settings_page(request: Request, saved: str | None = None):
+def settings_page(
+    request: Request,
+    saved: str | None = None,
+    nutrition_saved: str | None = None,
+    db: Session = Depends(get_db),
+):
     _require_permission(request, PERMISSION_HOME)
     current_user = _current_user(request) or {}
+    can_manage_system = has_permission(
+        str(current_user.get("role", "")),
+        PERMISSION_SECURITY,
+        access_matrix=_current_role_matrix(request),
+    )
     return _render(
         request,
         "settings.html",
         {
             "saved": saved == "1",
+            "nutrition_saved": nutrition_saved == "1",
             "show_nutrition_details_setting": bool(current_user.get("show_nutrition_details")),
             "show_nutrition_status_badges_setting": bool(
                 current_user.get("show_nutrition_status_badges", True)
             ),
+            "nutrition_fields": build_nutrition_form_fields(db) if can_manage_system else [],
+            "nutrition_errors": {},
         },
     )
 
@@ -1244,6 +1257,54 @@ def settings_submit(
     save_show_nutrition_details(db, user_id, _parse_bool(show_nutrition_details))
     save_show_nutrition_status_badges(db, user_id, _parse_bool(show_nutrition_status_badges))
     return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@app.post("/settings/nutrition", response_class=HTMLResponse)
+@app.post("/security/nutrition", response_class=HTMLResponse, include_in_schema=False)
+async def settings_nutrition_submit(request: Request, db: Session = Depends(get_db)):
+    _require_permission(request, PERMISSION_SECURITY)
+    form = await request.form()
+    payload = {key: str(value) for key, value in form.items()}
+    cleaned_values, errors = validate_nutrition_form_values(payload)
+
+    current_user = _current_user(request) or {}
+    if errors:
+        return _render(
+            request,
+            "settings.html",
+            {
+                "saved": False,
+                "nutrition_saved": False,
+                "show_nutrition_details_setting": bool(current_user.get("show_nutrition_details")),
+                "show_nutrition_status_badges_setting": bool(
+                    current_user.get("show_nutrition_status_badges", True)
+                ),
+                "nutrition_fields": build_nutrition_form_fields(db, payload),
+                "nutrition_errors": errors,
+            },
+            status_code=400,
+        )
+
+    save_nutrition_rules(db, cleaned_values)
+
+    # Recalcula el estado saludable/con alertas para reflejar reglas nuevas.
+    active_rules = load_nutrition_rules(db)
+    dishes = list(db.scalars(select(Dish)).all())
+    for dish in dishes:
+        is_healthy, _, _ = evaluate_nutrition(
+            calories=dish.calories,
+            protein_g=dish.protein_g,
+            carbs_g=dish.carbs_g,
+            fat_g=dish.fat_g,
+            fiber_g=dish.fiber_g,
+            sugar_g=dish.sugar_g,
+            sodium_mg=dish.sodium_mg,
+            rules=active_rules,
+        )
+        dish.is_healthy = is_healthy
+    db.commit()
+
+    return RedirectResponse(url="/settings?nutrition_saved=1", status_code=303)
 
 
 @app.get("/roles", response_class=HTMLResponse)
@@ -1492,7 +1553,6 @@ def users_edit_submit(
 def security_page(
     request: Request,
     saved: str | None = None,
-    nutrition_saved: str | None = None,
     db: Session = Depends(get_db),
 ):
     _require_permission(request, PERMISSION_SECURITY)
@@ -1502,10 +1562,7 @@ def security_page(
         {
             "security_fields": build_security_form_fields(db),
             "security_errors": {},
-            "nutrition_fields": build_nutrition_form_fields(db),
-            "nutrition_errors": {},
             "saved": saved == "1",
-            "nutrition_saved": nutrition_saved == "1",
         },
     )
 
@@ -1523,59 +1580,13 @@ async def security_submit(request: Request, db: Session = Depends(get_db)):
             {
                 "security_fields": build_security_form_fields(db, payload),
                 "security_errors": errors,
-                "nutrition_fields": build_nutrition_form_fields(db),
-                "nutrition_errors": {},
                 "saved": False,
-                "nutrition_saved": False,
             },
             status_code=400,
         )
 
     save_security_settings(db, cleaned_values)
     return RedirectResponse(url="/security?saved=1", status_code=303)
-
-
-@app.post("/security/nutrition", response_class=HTMLResponse)
-async def nutrition_rules_submit(request: Request, db: Session = Depends(get_db)):
-    _require_permission(request, PERMISSION_SECURITY)
-    form = await request.form()
-    payload = {key: str(value) for key, value in form.items()}
-    cleaned_values, errors = validate_nutrition_form_values(payload)
-    if errors:
-        return _render(
-            request,
-            "security.html",
-            {
-                "security_fields": build_security_form_fields(db),
-                "security_errors": {},
-                "nutrition_fields": build_nutrition_form_fields(db, payload),
-                "nutrition_errors": errors,
-                "saved": False,
-                "nutrition_saved": False,
-            },
-            status_code=400,
-        )
-
-    save_nutrition_rules(db, cleaned_values)
-
-    # Recalcula el estado saludable/con alertas para reflejar reglas nuevas.
-    active_rules = load_nutrition_rules(db)
-    dishes = list(db.scalars(select(Dish)).all())
-    for dish in dishes:
-        is_healthy, _, _ = evaluate_nutrition(
-            calories=dish.calories,
-            protein_g=dish.protein_g,
-            carbs_g=dish.carbs_g,
-            fat_g=dish.fat_g,
-            fiber_g=dish.fiber_g,
-            sugar_g=dish.sugar_g,
-            sodium_mg=dish.sodium_mg,
-            rules=active_rules,
-        )
-        dish.is_healthy = is_healthy
-    db.commit()
-
-    return RedirectResponse(url="/security?nutrition_saved=1", status_code=303)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
