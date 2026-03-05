@@ -392,6 +392,21 @@ h6,
   background-color: var(--table-hover-bg);
 }
 
+.dish-actions-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dish-actions-cell form {
+  margin: 0;
+}
+
+.dish-actions-cell .btn {
+  white-space: nowrap;
+}
+
 .display-6 {
   font-family: var(--font-heading);
   font-weight: 700;

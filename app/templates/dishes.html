@@ -82,8 +82,11 @@
     if (!form || !results || !searchInput || !mealTypeSelect || !perPageSelect || !pageInput) {
       return;
     }
-    if (modalElement && window.bootstrap && window.bootstrap.Modal) {
-      dishEditModal = new window.bootstrap.Modal(modalElement);
+    function ensureModal() {
+      if (!dishEditModal && modalElement && window.bootstrap && window.bootstrap.Modal) {
+        dishEditModal = new window.bootstrap.Modal(modalElement);
+      }
+      return dishEditModal;
     }
 
     function buildParams(pageOverride) {
@@ -202,10 +205,16 @@
       var links = results.querySelectorAll("a[data-dish-edit]");
       links.forEach(function (link) {
         link.addEventListener("click", function (event) {
-          if (!dishEditModal || !modalBody) {
+          event.preventDefault();
+          if (!modalBody) {
+            window.location.href = link.href;
             return;
           }
-          event.preventDefault();
+          ensureModal();
+          if (!dishEditModal) {
+            window.location.href = link.href;
+            return;
+          }
           var modalUrl = link.getAttribute("data-modal-url");
           if (!modalUrl) {
             return;

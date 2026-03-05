@@ -7,7 +7,7 @@
         <th>Costo por porcion</th>
         <th>Calorias</th>
         <th>Estado</th>
-        <th>Acciones</th>
+        <th class="text-nowrap">Acciones</th>
       </tr>
     </thead>
     <tbody>
@@ -32,7 +32,7 @@
           <span class="badge text-bg-warning">Con alertas</span>
           {% endif %}
         </td>
-        <td class="d-flex gap-2">
+        <td class="dish-actions-cell">
           {% if can_write_dishes %}
           <a
             class="btn btn-sm btn-outline-primary"
