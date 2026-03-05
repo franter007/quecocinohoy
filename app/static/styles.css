@@ -393,17 +393,22 @@ h6,
 }
 
 .dish-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.dish-actions-inline {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
 }
 
-.dish-actions-cell form {
+.dish-actions-inline form {
   margin: 0;
 }
 
-.dish-actions-cell .btn {
+.dish-actions-inline .btn {
   white-space: nowrap;
 }
 
