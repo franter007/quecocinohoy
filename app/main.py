@@ -216,6 +216,26 @@ def _menu_rows(menu: WeeklyMenu | None) -> tuple[list[dict], float]:
     return rows, round(total, 2)
 
 
+def _menu_column_label_for_share(column_key: str) -> str:
+    if column_key == "day_name":
+        return "Dia"
+    if column_key == "daily_total":
+        return "Costo dia"
+    return MEAL_LABELS.get(column_key, column_key)
+
+
+def _menu_value_for_share(row: dict, column_key: str) -> str:
+    if column_key == "day_name":
+        return str(row["day_name"])
+    if column_key == "daily_total":
+        return f"S/ {row['daily_total']:.2f}"
+    item = row["meals"].get(column_key)
+    if not item or not item.dish:
+        return "-"
+    # WhatsApp debe ir limpio: solo nombre de plato.
+    return str(item.dish.name)
+
+
 def _parse_bool(value: str | None) -> bool:
     return value in {"on", "true", "1", "si", "yes"}
 
@@ -1077,7 +1097,19 @@ def share_menu_whatsapp(
 
     rows, total_cost = _menu_rows(menu)
     selected_columns = resolve_menu_export_columns(columns, preset, MEAL_LABELS)
-    daily_summary = ", ".join([f"{row['day_name']}: S/ {row['daily_total']:.2f}" for row in rows])
+    share_lines: list[str] = []
+    for row in rows:
+        parts: list[str] = []
+        for key in selected_columns:
+            value = _menu_value_for_share(row, key)
+            if key == "day_name":
+                parts.append(value)
+            else:
+                parts.append(f"{_menu_column_label_for_share(key)}: {value}")
+        if parts:
+            share_lines.append(" | ".join(parts))
+    detail_block = "\n".join(share_lines)
+    columns_label = ", ".join([_menu_column_label_for_share(key) for key in selected_columns])
 
     base_url = str(request.base_url).rstrip("/")
     menu_link = f"{base_url}/menus?week_start={selected_start.isoformat()}"
@@ -1090,7 +1122,8 @@ def share_menu_whatsapp(
     text = (
         f"Menu semanal {selected_start.isoformat()}\n"
         f"Total estimado: S/ {total_cost:.2f}\n"
-        f"Detalle diario: {daily_summary}\n"
+        f"Columnas: {columns_label}\n"
+        f"{detail_block}\n"
         f"Web: {menu_link}\n"
         f"PDF: {pdf_link}\n"
         f"PNG: {png_link}"
