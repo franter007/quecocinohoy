@@ -22,6 +22,12 @@ from app.database import Base, SessionLocal, engine, get_db
 from app.models import Dish, MEAL_TYPES, User, WeeklyMenu
 from app.seed_data import seed_default_dishes
 from app.services.auth import (
+    ACCESS_ADMIN,
+    ACCESS_NONE,
+    ACCESS_READ,
+    ACCESS_TYPE_LABELS,
+    ACCESS_TYPE_STYLE,
+    ACCESS_WRITE,
     PERMISSION_DISHES,
     PERMISSION_DISHES_ADMIN,
     PERMISSION_DISHES_WRITE,
@@ -34,10 +40,15 @@ from app.services.auth import (
     ROLE_ADMIN,
     ROLE_LABELS,
     ROLE_ORDER,
+    SECTION_LABELS,
+    SECTION_ORDER,
     authenticate_user,
     ensure_admin_user,
     has_permission,
     hash_password,
+    load_effective_role_access_matrix,
+    migrate_legacy_roles,
+    save_role_access_overrides,
     role_catalog,
 )
 from app.services.menu_export import (
@@ -94,6 +105,7 @@ SETTINGS = get_settings()
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:
+        migrate_legacy_roles(session)
         seed_default_dishes(session)
         ensure_admin_user(session)
     yield
@@ -143,6 +155,7 @@ async def auth_middleware(request: Request, call_next):
         if not user or not user.is_active:
             request.session.clear()
             return RedirectResponse(url="/login", status_code=303)
+        request.state.role_access_matrix = load_effective_role_access_matrix(session)
         request.state.current_user = {
             "id": user.id,
             "username": user.username,
@@ -199,27 +212,35 @@ def _current_user(request: Request) -> dict | None:
     return getattr(request.state, "current_user", None)
 
 
-def _permission_flags(role: str | None) -> dict[str, bool]:
+def _current_role_matrix(request: Request) -> dict[str, dict[str, int]] | None:
+    return getattr(request.state, "role_access_matrix", None)
+
+
+def _permission_flags(
+    role: str | None,
+    access_matrix: dict[str, dict[str, int]] | None = None,
+) -> dict[str, bool]:
     current_role = role or ""
     return {
-        "can_view_home": has_permission(current_role, PERMISSION_HOME),
-        "can_view_menu": has_permission(current_role, PERMISSION_MENU),
-        "can_manage_dishes": has_permission(current_role, PERMISSION_DISHES),
-        "can_view_reports": has_permission(current_role, PERMISSION_REPORTS),
-        "can_manage_users": has_permission(current_role, PERMISSION_USERS),
-        "can_manage_security": has_permission(current_role, PERMISSION_SECURITY),
+        "can_view_home": has_permission(current_role, PERMISSION_HOME, access_matrix=access_matrix),
+        "can_view_menu": has_permission(current_role, PERMISSION_MENU, access_matrix=access_matrix),
+        "can_manage_dishes": has_permission(current_role, PERMISSION_DISHES, access_matrix=access_matrix),
+        "can_view_reports": has_permission(current_role, PERMISSION_REPORTS, access_matrix=access_matrix),
+        "can_manage_users": has_permission(current_role, PERMISSION_USERS, access_matrix=access_matrix),
+        "can_manage_security": has_permission(current_role, PERMISSION_SECURITY, access_matrix=access_matrix),
     }
 
 
 def _render(request: Request, template_name: str, context: dict, status_code: int = 200):
     user = _current_user(request)
     role = user["role"] if user else None
+    role_matrix = _current_role_matrix(request)
     base_context = {
         "request": request,
         "current_user": user,
         "show_nutrition_details": bool(user and user.get("show_nutrition_details")),
         "role_labels": ROLE_LABELS,
-        **_permission_flags(role),
+        **_permission_flags(role, access_matrix=role_matrix),
     }
     base_context.update(context)
     return templates.TemplateResponse(template_name, base_context, status_code=status_code)
@@ -228,7 +249,8 @@ def _render(request: Request, template_name: str, context: dict, status_code: in
 def _require_permission(request: Request, permission: str) -> None:
     user = _current_user(request)
     role = user["role"] if user else ""
-    if not has_permission(role, permission):
+    access_matrix = _current_role_matrix(request)
+    if not has_permission(role, permission, access_matrix=access_matrix):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta accion")
 
 
@@ -1157,17 +1179,87 @@ def settings_submit(
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
+@app.get("/roles", response_class=HTMLResponse)
+def roles_page(request: Request, saved: str | None = None):
+    _require_permission(request, PERMISSION_USERS)
+    matrix = _current_role_matrix(request) or {}
+    role_rows: list[dict] = []
+    for role_entry in role_catalog(access_matrix=matrix):
+        role_key = str(role_entry["key"])
+        section_controls: list[dict] = []
+        for section in SECTION_ORDER:
+            level = int(matrix.get(role_key, {}).get(section, ACCESS_NONE))
+            section_controls.append(
+                {
+                    "key": section,
+                    "label": SECTION_LABELS[section],
+                    "level": level,
+                }
+            )
+        role_rows.append(
+            {
+                **role_entry,
+                "is_locked": role_key == ROLE_ADMIN,
+                "sections": section_controls,
+            }
+        )
+
+    level_options = [
+        {"value": ACCESS_NONE, "label": ACCESS_TYPE_LABELS[ACCESS_NONE], "style": ACCESS_TYPE_STYLE[ACCESS_NONE]},
+        {"value": ACCESS_READ, "label": ACCESS_TYPE_LABELS[ACCESS_READ], "style": ACCESS_TYPE_STYLE[ACCESS_READ]},
+        {"value": ACCESS_WRITE, "label": ACCESS_TYPE_LABELS[ACCESS_WRITE], "style": ACCESS_TYPE_STYLE[ACCESS_WRITE]},
+        {"value": ACCESS_ADMIN, "label": ACCESS_TYPE_LABELS[ACCESS_ADMIN], "style": ACCESS_TYPE_STYLE[ACCESS_ADMIN]},
+    ]
+    return _render(
+        request,
+        "roles.html",
+        {
+            "saved": saved == "1",
+            "role_rows": role_rows,
+            "level_options": level_options,
+        },
+    )
+
+
+@app.post("/roles")
+async def roles_submit(request: Request, db: Session = Depends(get_db)):
+    _require_permission(request, PERMISSION_USERS)
+    form = await request.form()
+    submitted: dict[str, dict[str, int]] = {}
+    for role_key in ROLE_ORDER:
+        submitted[role_key] = {}
+        for section in SECTION_ORDER:
+            field_name = f"lvl__{role_key}__{section}"
+            raw_value = str(form.get(field_name, "")).strip()
+            try:
+                level = int(raw_value)
+            except ValueError:
+                level = ACCESS_NONE
+            submitted[role_key][section] = level
+
+    save_role_access_overrides(db, submitted)
+    request.state.role_access_matrix = load_effective_role_access_matrix(db)
+    return RedirectResponse(url="/roles?saved=1", status_code=303)
+
+
 @app.get("/users", response_class=HTMLResponse)
 def users_page(request: Request, db: Session = Depends(get_db)):
     _require_permission(request, PERMISSION_USERS)
     users = list(db.scalars(select(User).order_by(User.username)).all())
-    return _render(request, "users.html", {"users": users, "role_matrix": role_catalog()})
+    return _render(
+        request,
+        "users.html",
+        {
+            "users": users,
+            "role_matrix": role_catalog(access_matrix=_current_role_matrix(request)),
+        },
+    )
 
 
 @app.get("/users/new", response_class=HTMLResponse)
 def users_new_page(request: Request):
     _require_permission(request, PERMISSION_USERS)
-    role_matrix = role_catalog()
+    role_matrix = role_catalog(access_matrix=_current_role_matrix(request))
     return _render(
         request,
         "user_form.html",
@@ -1207,7 +1299,7 @@ def users_new_submit(
         error = "Ese nombre de usuario ya existe"
 
     if error:
-        role_matrix = role_catalog()
+        role_matrix = role_catalog(access_matrix=_current_role_matrix(request))
         return _render(
             request,
             "user_form.html",
@@ -1242,7 +1334,7 @@ def users_edit_page(user_id: int, request: Request, db: Session = Depends(get_db
     user_obj = db.get(User, user_id)
     if not user_obj:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    role_matrix = role_catalog()
+    role_matrix = role_catalog(access_matrix=_current_role_matrix(request))
     return _render(
         request,
         "user_form.html",
@@ -1298,7 +1390,7 @@ def users_edit_submit(
         error = "No puedes quitarte permisos de administrador ni desactivarte a ti mismo"
 
     if error:
-        role_matrix = role_catalog()
+        role_matrix = role_catalog(access_matrix=_current_role_matrix(request))
         return _render(
             request,
             "user_form.html",

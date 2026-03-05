@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import User
+from app.models import AppSetting, User
 
 ACCESS_NONE = 0
 ACCESS_READ = 1
@@ -53,27 +53,15 @@ SECTION_LABELS = {
     SECTION_SECURITY: "Seguridad",
 }
 
-# Roles escalonados recomendados.
+# Roles oficiales (sin legacy).
 ROLE_HOME_READER = "home_reader"
 ROLE_MENU_READER = "menu_reader"
 ROLE_MENU_WRITER = "menu_writer"
 ROLE_DISHES_WRITER = "dishes_writer"
-ROLE_DISHES_ADMIN = "dishes_admin"
 ROLE_REPORTS_READER = "reports_reader"
+ROLE_DISHES_ADMIN = "dishes_admin"
 ROLE_PLATFORM_ADMIN = "platform_admin"
 ROLE_ADMIN = "admin"
-
-# Roles legacy mantenidos por compatibilidad con usuarios ya creados.
-ROLE_OPERATIONS_MANAGER = "operations_manager"
-ROLE_MENU_OPERATOR = "menu_operator"
-ROLE_CATALOG_EDITOR = "catalog_editor"
-ROLE_NUTRITION_ANALYST = "nutrition_analyst"
-ROLE_FINANCE_ANALYST = "finance_analyst"
-ROLE_SECURITY_ADMIN = "security_admin"
-ROLE_VIEWER = "viewer"
-ROLE_MENU_MAINTAINER = "menu_maintainer"
-ROLE_MENU_ONLY = "menu_only"
-ROLE_HOME_ONLY = "home_only"
 
 ROLE_ORDER = (
     ROLE_HOME_READER,
@@ -84,16 +72,6 @@ ROLE_ORDER = (
     ROLE_DISHES_ADMIN,
     ROLE_PLATFORM_ADMIN,
     ROLE_ADMIN,
-    ROLE_OPERATIONS_MANAGER,
-    ROLE_MENU_OPERATOR,
-    ROLE_CATALOG_EDITOR,
-    ROLE_NUTRITION_ANALYST,
-    ROLE_FINANCE_ANALYST,
-    ROLE_SECURITY_ADMIN,
-    ROLE_VIEWER,
-    ROLE_MENU_MAINTAINER,
-    ROLE_MENU_ONLY,
-    ROLE_HOME_ONLY,
 )
 
 ROLE_LABELS = {
@@ -105,58 +83,17 @@ ROLE_LABELS = {
     ROLE_DISHES_ADMIN: "Nivel 6 - Platos Admin",
     ROLE_PLATFORM_ADMIN: "Nivel 7 - Gestion",
     ROLE_ADMIN: "Administrador",
-    ROLE_OPERATIONS_MANAGER: "Gestor Operaciones",
-    ROLE_MENU_OPERATOR: "Operador Menu",
-    ROLE_CATALOG_EDITOR: "Editor de Platos",
-    ROLE_NUTRITION_ANALYST: "Analista Nutricion",
-    ROLE_FINANCE_ANALYST: "Analista Finanzas",
-    ROLE_SECURITY_ADMIN: "Administrador Seguridad",
-    ROLE_VIEWER: "Solo Lectura Inicio",
-    ROLE_MENU_MAINTAINER: "Mantenimiento Menu",
-    ROLE_MENU_ONLY: "Solo Menu",
-    ROLE_HOME_ONLY: "Solo Home",
 }
 
 ROLE_DESCRIPTIONS = {
-    ROLE_HOME_READER: "Solo dashboard inicial. Ejemplo: duenio de casa que solo revisa el estado semanal.",
+    ROLE_HOME_READER: "Solo dashboard inicial. Ejemplo: duenio de casa que revisa el estado semanal.",
     ROLE_MENU_READER: "Inicio + menu semanal lectura. Ejemplo: familiar que revisa el plan sin modificarlo.",
-    ROLE_MENU_WRITER: "Inicio + menu con generacion/regeneracion. Ejemplo: planner que arma el menu de la semana.",
+    ROLE_MENU_WRITER: "Inicio + menu en escritura. Ejemplo: planner que genera/regenera la semana.",
     ROLE_DISHES_WRITER: "Incluye platos en escritura (crear/editar, sin eliminar). Ejemplo: asistente de cocina.",
-    ROLE_REPORTS_READER: "Incluye reportes de gasto sin borrar platos. Ejemplo: quien monitorea presupuesto familiar.",
+    ROLE_REPORTS_READER: "Incluye reportes de gasto. Ejemplo: quien monitorea presupuesto familiar.",
     ROLE_DISHES_ADMIN: "Incluye admin de platos (crear/editar/eliminar). Ejemplo: responsable del catalogo culinario.",
-    ROLE_PLATFORM_ADMIN: "Incluye gestion de usuarios y seguridad operativa. Ejemplo: coordinador del hogar/plataforma.",
+    ROLE_PLATFORM_ADMIN: "Incluye gestion de usuarios y seguridad operativa. Ejemplo: coordinador de la plataforma.",
     ROLE_ADMIN: "Control total del sistema. Ejemplo: propietario de la aplicacion.",
-    ROLE_OPERATIONS_MANAGER: "Legacy: operacion diaria completa de menu, platos y reportes.",
-    ROLE_MENU_OPERATOR: "Legacy: genera y consulta menu semanal.",
-    ROLE_CATALOG_EDITOR: "Legacy: administra catalogo de platos.",
-    ROLE_NUTRITION_ANALYST: "Legacy: consulta menu y reportes nutricionales.",
-    ROLE_FINANCE_ANALYST: "Legacy: consulta reportes de costo.",
-    ROLE_SECURITY_ADMIN: "Legacy: gestiona usuarios y politicas de seguridad.",
-    ROLE_VIEWER: "Legacy: solo inicio.",
-    ROLE_MENU_MAINTAINER: "Legacy: equivalente funcional a gestion operativa.",
-    ROLE_MENU_ONLY: "Legacy: equivalente funcional a menu escritura.",
-    ROLE_HOME_ONLY: "Legacy: equivalente funcional a inicio lectura.",
-}
-
-ROLE_IS_LEGACY = {
-    ROLE_HOME_READER: False,
-    ROLE_MENU_READER: False,
-    ROLE_MENU_WRITER: False,
-    ROLE_DISHES_WRITER: False,
-    ROLE_DISHES_ADMIN: False,
-    ROLE_REPORTS_READER: False,
-    ROLE_PLATFORM_ADMIN: False,
-    ROLE_ADMIN: False,
-    ROLE_OPERATIONS_MANAGER: True,
-    ROLE_MENU_OPERATOR: True,
-    ROLE_CATALOG_EDITOR: True,
-    ROLE_NUTRITION_ANALYST: True,
-    ROLE_FINANCE_ANALYST: True,
-    ROLE_SECURITY_ADMIN: True,
-    ROLE_VIEWER: True,
-    ROLE_MENU_MAINTAINER: True,
-    ROLE_MENU_ONLY: True,
-    ROLE_HOME_ONLY: True,
 }
 
 ROLE_ACCESS_MATRIX: dict[str, dict[str, int]] = {
@@ -204,52 +141,23 @@ ROLE_ACCESS_MATRIX: dict[str, dict[str, int]] = {
         SECTION_USERS: ACCESS_ADMIN,
         SECTION_SECURITY: ACCESS_ADMIN,
     },
-    # Compatibilidad legacy
-    ROLE_OPERATIONS_MANAGER: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_MENU: ACCESS_WRITE,
-        SECTION_DISHES: ACCESS_ADMIN,
-        SECTION_REPORTS: ACCESS_READ,
-    },
-    ROLE_MENU_OPERATOR: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_MENU: ACCESS_WRITE,
-    },
-    ROLE_CATALOG_EDITOR: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_DISHES: ACCESS_WRITE,
-    },
-    ROLE_NUTRITION_ANALYST: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_MENU: ACCESS_READ,
-        SECTION_REPORTS: ACCESS_READ,
-    },
-    ROLE_FINANCE_ANALYST: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_REPORTS: ACCESS_READ,
-    },
-    ROLE_SECURITY_ADMIN: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_USERS: ACCESS_ADMIN,
-        SECTION_SECURITY: ACCESS_ADMIN,
-    },
-    ROLE_VIEWER: {
-        SECTION_HOME: ACCESS_READ,
-    },
-    ROLE_MENU_MAINTAINER: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_MENU: ACCESS_WRITE,
-        SECTION_DISHES: ACCESS_ADMIN,
-        SECTION_REPORTS: ACCESS_READ,
-    },
-    ROLE_MENU_ONLY: {
-        SECTION_HOME: ACCESS_READ,
-        SECTION_MENU: ACCESS_WRITE,
-    },
-    ROLE_HOME_ONLY: {
-        SECTION_HOME: ACCESS_READ,
-    },
 }
+
+# Mapeo de roles legacy hacia roles oficiales.
+LEGACY_ROLE_ALIASES: dict[str, str] = {
+    "operations_manager": ROLE_DISHES_ADMIN,
+    "menu_operator": ROLE_MENU_WRITER,
+    "catalog_editor": ROLE_DISHES_WRITER,
+    "nutrition_analyst": ROLE_MENU_READER,
+    "finance_analyst": ROLE_HOME_READER,
+    "security_admin": ROLE_PLATFORM_ADMIN,
+    "viewer": ROLE_HOME_READER,
+    "menu_maintainer": ROLE_DISHES_ADMIN,
+    "menu_only": ROLE_MENU_WRITER,
+    "home_only": ROLE_HOME_READER,
+}
+
+ROLE_MATRIX_SETTING_PREFIX = "rbac.role."
 
 PERMISSION_HOME = "home:read"
 PERMISSION_MENU = "menu:read"
@@ -292,8 +200,92 @@ DEFAULT_ADMIN_FULLNAME = SETTINGS.admin_full_name
 DEFAULT_ADMIN_PASSWORD = SETTINGS.admin_initial_password
 
 
-def role_access_level(role: str, section: str) -> int:
-    return int(ROLE_ACCESS_MATRIX.get(role, {}).get(section, ACCESS_NONE))
+def normalize_role(role: str) -> str:
+    return LEGACY_ROLE_ALIASES.get(role, role)
+
+
+def _role_matrix_setting_key(role: str, section: str) -> str:
+    return f"{ROLE_MATRIX_SETTING_PREFIX}{role}.{section}"
+
+
+def load_effective_role_access_matrix(session: Session) -> dict[str, dict[str, int]]:
+    matrix = {role: dict(sections) for role, sections in ROLE_ACCESS_MATRIX.items()}
+    rows = session.scalars(select(AppSetting).where(AppSetting.key.like(f"{ROLE_MATRIX_SETTING_PREFIX}%"))).all()
+    for row in rows:
+        payload = row.key[len(ROLE_MATRIX_SETTING_PREFIX) :]
+        role, sep, section = payload.rpartition(".")
+        if not sep:
+            continue
+        if role not in ROLE_ORDER or section not in SECTION_ORDER:
+            continue
+        try:
+            level = int((row.value or "").strip())
+        except ValueError:
+            continue
+        if level < ACCESS_NONE or level > ACCESS_ADMIN:
+            continue
+        matrix.setdefault(role, {})[section] = level
+    return matrix
+
+
+def save_role_access_overrides(session: Session, submitted_levels: dict[str, dict[str, int]]) -> None:
+    existing_rows = session.scalars(
+        select(AppSetting).where(AppSetting.key.like(f"{ROLE_MATRIX_SETTING_PREFIX}%"))
+    ).all()
+    by_key = {row.key: row for row in existing_rows}
+
+    for role in ROLE_ORDER:
+        for section in SECTION_ORDER:
+            default_level = int(ROLE_ACCESS_MATRIX.get(role, {}).get(section, ACCESS_NONE))
+            desired_level = int(submitted_levels.get(role, {}).get(section, default_level))
+            if desired_level < ACCESS_NONE:
+                desired_level = ACCESS_NONE
+            if desired_level > ACCESS_ADMIN:
+                desired_level = ACCESS_ADMIN
+
+            # El rol administrador se mantiene fijo para evitar auto-bloqueos.
+            if role == ROLE_ADMIN:
+                desired_level = default_level
+
+            key = _role_matrix_setting_key(role, section)
+            current = by_key.get(key)
+            if desired_level == default_level:
+                if current:
+                    session.delete(current)
+                continue
+
+            if current:
+                current.value = str(desired_level)
+            else:
+                session.add(AppSetting(key=key, value=str(desired_level)))
+
+    session.commit()
+
+
+def migrate_legacy_roles(session: Session) -> int:
+    old_roles = tuple(LEGACY_ROLE_ALIASES.keys())
+    if not old_roles:
+        return 0
+
+    users = list(session.scalars(select(User).where(User.role.in_(old_roles))).all())
+    if not users:
+        return 0
+
+    migrated = 0
+    for user in users:
+        mapped = LEGACY_ROLE_ALIASES.get(user.role)
+        if mapped and mapped != user.role:
+            user.role = mapped
+            migrated += 1
+    if migrated > 0:
+        session.commit()
+    return migrated
+
+
+def role_access_level(role: str, section: str, access_matrix: dict[str, dict[str, int]] | None = None) -> int:
+    normalized = normalize_role(role)
+    matrix = access_matrix or ROLE_ACCESS_MATRIX
+    return int(matrix.get(normalized, {}).get(section, ACCESS_NONE))
 
 
 def role_permissions(role: str) -> set[str]:
@@ -304,42 +296,41 @@ def role_permissions(role: str) -> set[str]:
     return granted
 
 
-def has_permission(role: str, permission: str) -> bool:
+def has_permission(role: str, permission: str, access_matrix: dict[str, dict[str, int]] | None = None) -> bool:
     requirement = PERMISSION_REQUIREMENTS.get(permission)
     if not requirement:
         return False
     section, required_level = requirement
-    return role_access_level(role, section) >= required_level
+    return role_access_level(role, section, access_matrix=access_matrix) >= required_level
 
 
-def role_access_labels(role: str) -> list[str]:
+def role_access_labels(role: str, access_matrix: dict[str, dict[str, int]] | None = None) -> list[str]:
     labels: list[str] = []
     for section in SECTION_ORDER:
-        if role_access_level(role, section) > ACCESS_NONE:
+        if role_access_level(role, section, access_matrix=access_matrix) > ACCESS_NONE:
             labels.append(SECTION_LABELS[section])
     return labels
 
 
-def role_access_type(role: str) -> int:
+def role_access_type(role: str, access_matrix: dict[str, dict[str, int]] | None = None) -> int:
     max_level = ACCESS_NONE
     for section in SECTION_ORDER:
-        level = role_access_level(role, section)
+        level = role_access_level(role, section, access_matrix=access_matrix)
         if level > max_level:
             max_level = level
     return max_level
 
 
-def role_catalog() -> list[dict[str, object]]:
+def role_catalog(access_matrix: dict[str, dict[str, int]] | None = None) -> list[dict[str, object]]:
     return [
         {
             "key": role,
             "label": ROLE_LABELS.get(role, role),
             "description": ROLE_DESCRIPTIONS.get(role, ""),
-            "access_labels": role_access_labels(role),
-            "access_type": role_access_type(role),
-            "access_type_label": ACCESS_TYPE_LABELS[role_access_type(role)],
-            "access_type_style": ACCESS_TYPE_STYLE[role_access_type(role)],
-            "is_legacy": ROLE_IS_LEGACY.get(role, False),
+            "access_labels": role_access_labels(role, access_matrix=access_matrix),
+            "access_type": role_access_type(role, access_matrix=access_matrix),
+            "access_type_label": ACCESS_TYPE_LABELS[role_access_type(role, access_matrix=access_matrix)],
+            "access_type_style": ACCESS_TYPE_STYLE[role_access_type(role, access_matrix=access_matrix)],
         }
         for role in ROLE_ORDER
     ]
