@@ -64,7 +64,7 @@
           </option>
           {% endfor %}
         </select>
-        <label class="form-label">Columnas para exportar (PDF/PNG/WhatsApp)</label>
+        <label class="form-label">Columnas para exportar (PDF/PNG)</label>
         <small class="text-muted d-block mb-2">Si eliges plantilla, prevalece sobre la seleccion manual.</small>
         <div class="d-flex flex-wrap gap-3">
           {% for col in menu_export_columns %}
@@ -87,12 +87,23 @@
       <div class="col-md-3 d-grid">
         <button class="btn btn-outline-primary" type="submit" formaction="/menus/export/png">Exportar PNG</button>
       </div>
+      <div class="col-md-3">
+        <label class="form-label">WhatsApp</label>
+        <select class="form-select" name="wa_scope">
+          <option value="all">Todos los tiempos</option>
+          <option value="desayuno">Solo desayuno</option>
+          <option value="almuerzo">Solo almuerzo</option>
+          <option value="cena">Solo cena</option>
+          <option value="lonchera">Solo lonchera</option>
+          <option value="refresco">Solo refresco</option>
+        </select>
+      </div>
       <div class="col-md-3 d-grid">
         <button class="btn btn-success" type="submit" formtarget="_blank" formaction="/menus/share/whatsapp">Compartir WhatsApp</button>
       </div>
     </form>
     <small class="text-muted mt-2 d-block">
-      En WhatsApp se comparte un resumen en texto con las columnas seleccionadas (solo nombres de platos) y enlaces al menu/PDF/PNG.
+      En WhatsApp se comparte un resumen limpio (sin enlaces), con solo nombres de platos y filtro por tiempo de comida.
     </small>
   </div>
   <div class="table-responsive">

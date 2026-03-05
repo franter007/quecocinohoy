@@ -216,24 +216,23 @@ def _menu_rows(menu: WeeklyMenu | None) -> tuple[list[dict], float]:
     return rows, round(total, 2)
 
 
-def _menu_column_label_for_share(column_key: str) -> str:
-    if column_key == "day_name":
-        return "Dia"
-    if column_key == "daily_total":
-        return "Costo dia"
-    return MEAL_LABELS.get(column_key, column_key)
-
-
-def _menu_value_for_share(row: dict, column_key: str) -> str:
-    if column_key == "day_name":
-        return str(row["day_name"])
-    if column_key == "daily_total":
-        return f"S/ {row['daily_total']:.2f}"
-    item = row["meals"].get(column_key)
+def _wa_dish_name(row: dict, meal_type: str) -> str:
+    item = row["meals"].get(meal_type)
     if not item or not item.dish:
         return "-"
-    # WhatsApp debe ir limpio: solo nombre de plato.
     return str(item.dish.name)
+
+
+def _wa_scope_label(scope: str) -> str:
+    if scope in MEAL_LABELS:
+        return f"Solo {MEAL_LABELS[scope]}"
+    return "Todos los tiempos"
+
+
+def _wa_meal_columns(wa_scope: str) -> list[str]:
+    if wa_scope in MEAL_TYPES:
+        return [wa_scope]
+    return list(MEAL_TYPES)
 
 
 def _parse_bool(value: str | None) -> bool:
@@ -1086,6 +1085,7 @@ def share_menu_whatsapp(
     week_start: str | None = None,
     columns: list[str] | None = Query(None),
     preset: str | None = None,
+    wa_scope: str = Query("all"),
     db: Session = Depends(get_db),
 ):
     _require_permission(request, PERMISSION_MENU)
@@ -1096,37 +1096,27 @@ def share_menu_whatsapp(
         raise HTTPException(status_code=404, detail="No existe menu para la semana solicitada")
 
     rows, total_cost = _menu_rows(menu)
-    selected_columns = resolve_menu_export_columns(columns, preset, MEAL_LABELS)
+    meal_columns = _wa_meal_columns(wa_scope)
     share_lines: list[str] = []
     for row in rows:
-        parts: list[str] = []
-        for key in selected_columns:
-            value = _menu_value_for_share(row, key)
-            if key == "day_name":
-                parts.append(value)
-            else:
-                parts.append(f"{_menu_column_label_for_share(key)}: {value}")
-        if parts:
-            share_lines.append(" | ".join(parts))
-    detail_block = "\n".join(share_lines)
-    columns_label = ", ".join([_menu_column_label_for_share(key) for key in selected_columns])
+        day_name = str(row["day_name"])
+        if len(meal_columns) == 1:
+            meal_type = meal_columns[0]
+            share_lines.append(f"- {day_name}: {_wa_dish_name(row, meal_type)}")
+            continue
 
-    base_url = str(request.base_url).rstrip("/")
-    menu_link = f"{base_url}/menus?week_start={selected_start.isoformat()}"
-    export_query = urlencode(
-        {"week_start": selected_start.isoformat(), "columns": selected_columns, "preset": preset or ""},
-        doseq=True,
-    )
-    pdf_link = f"{base_url}/menus/export/pdf?{export_query}"
-    png_link = f"{base_url}/menus/export/png?{export_query}"
+        parts: list[str] = []
+        for meal_type in meal_columns:
+            parts.append(f"{MEAL_LABELS[meal_type]}: {_wa_dish_name(row, meal_type)}")
+        share_lines.append(f"- {day_name}: " + " | ".join(parts))
+    detail_block = "\n".join(share_lines)
+    scope_label = _wa_scope_label(wa_scope)
+
     text = (
-        f"Menu semanal {selected_start.isoformat()}\n"
+        f"*Menu semanal* {selected_start.isoformat()}\n"
+        f"Vista: {scope_label}\n"
         f"Total estimado: S/ {total_cost:.2f}\n"
-        f"Columnas: {columns_label}\n"
-        f"{detail_block}\n"
-        f"Web: {menu_link}\n"
-        f"PDF: {pdf_link}\n"
-        f"PNG: {png_link}"
+        f"{detail_block}"
     )
     return RedirectResponse(url=f"https://wa.me/?text={quote_plus(text)}", status_code=303)
 
