@@ -229,18 +229,6 @@ def _wa_dish_name(row: dict, meal_type: str, include_warnings: bool = False) -> 
     return f"{name} ({warning})"
 
 
-def _wa_scope_label(scope: str) -> str:
-    if scope in MEAL_LABELS:
-        return f"Solo {MEAL_LABELS[scope]}"
-    return "Todos los tiempos"
-
-
-def _wa_meal_columns(wa_scope: str) -> list[str]:
-    if wa_scope in MEAL_TYPES:
-        return [wa_scope]
-    return list(MEAL_TYPES)
-
-
 def _parse_bool(value: str | None) -> bool:
     return value in {"on", "true", "1", "si", "yes"}
 
@@ -986,7 +974,6 @@ def menu_page(
     week_start: str | None = None,
     columns: list[str] | None = Query(None),
     preset: str | None = None,
-    wa_scope: str | None = Query(None),
     include_warnings: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
@@ -1002,7 +989,6 @@ def menu_page(
     else:
         selected_preset = "completo"
     selected_include_warnings = _parse_bool(include_warnings)
-    selected_wa_scope = wa_scope if wa_scope in {"all", *MEAL_TYPES} else "all"
 
     menu = get_weekly_menu(db, selected_start)
     rows, total_cost = _menu_rows(menu)
@@ -1022,7 +1008,6 @@ def menu_page(
             "selected_menu_export_columns": selected_columns,
             "selected_menu_export_preset": selected_preset,
             "selected_include_warnings": selected_include_warnings,
-            "selected_wa_scope": selected_wa_scope,
         },
     )
 
@@ -1103,7 +1088,6 @@ def share_menu_whatsapp(
     week_start: str | None = None,
     columns: list[str] | None = Query(None),
     preset: str | None = None,
-    wa_scope: str = Query("all"),
     include_warnings: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
@@ -1115,31 +1099,34 @@ def share_menu_whatsapp(
         raise HTTPException(status_code=404, detail="No existe menu para la semana solicitada")
 
     rows, total_cost = _menu_rows(menu)
-    meal_columns = _wa_meal_columns(wa_scope)
+    selected_columns = resolve_menu_export_columns(columns, preset, MEAL_LABELS)
     selected_include_warnings = _parse_bool(include_warnings)
+    include_day_name = "day_name" in selected_columns
+    include_daily_total = "daily_total" in selected_columns
+    meal_columns = [column for column in selected_columns if column in MEAL_TYPES]
+    if not meal_columns and not include_daily_total:
+        meal_columns = list(MEAL_TYPES)
+
     share_lines: list[str] = []
     for row in rows:
-        day_name = str(row["day_name"])
-        if len(meal_columns) == 1:
-            meal_type = meal_columns[0]
-            share_lines.append(
-                f"- {day_name}: {_wa_dish_name(row, meal_type, include_warnings=selected_include_warnings)}"
-            )
-            continue
-
         parts: list[str] = []
         for meal_type in meal_columns:
             parts.append(
                 f"{MEAL_LABELS[meal_type]}: "
                 f"{_wa_dish_name(row, meal_type, include_warnings=selected_include_warnings)}"
             )
-        share_lines.append(f"- {day_name}: " + " | ".join(parts))
+        if include_daily_total:
+            parts.append(f"Costo dia: S/ {row['daily_total']:.2f}")
+
+        line_body = " | ".join(parts) if parts else "-"
+        if include_day_name:
+            share_lines.append(f"- {row['day_name']}: {line_body}")
+        else:
+            share_lines.append(f"- {line_body}")
     detail_block = "\n".join(share_lines)
-    scope_label = _wa_scope_label(wa_scope)
 
     text = (
         f"*Menu semanal* {selected_start.isoformat()}\n"
-        f"Vista: {scope_label}\n"
         f"Total estimado: S/ {total_cost:.2f}\n"
         f"{detail_block}"
     )
