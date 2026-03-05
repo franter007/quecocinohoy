@@ -176,6 +176,67 @@
   --table-hover-bg: #f4ffef;
 }
 
+:root[data-theme="bunny-brown"] {
+  --app-primary: #c0784a;
+  --app-primary-strong: #9f5f3a;
+  --app-secondary: #6f4f3d;
+  --app-accent: #d19a6f;
+  --app-ink: #2f221b;
+
+  --bg-radial-1: rgba(192, 120, 74, 0.16);
+  --bg-radial-2: rgba(209, 154, 111, 0.14);
+  --bg-radial-3: rgba(132, 93, 67, 0.12);
+  --bg-linear-1: #fffaf5;
+  --bg-linear-2: #f9efe2;
+  --bg-linear-3: #f6f1ea;
+
+  --nav-grad-1: #8c5b3f;
+  --nav-grad-2: #b0714a;
+  --nav-grad-3: #6f4f3d;
+  --nav-shadow: rgba(58, 40, 29, 0.22);
+  --nav-pill-hover: rgba(255, 255, 255, 0.24);
+
+  --hero-grad-1: rgba(192, 120, 74, 0.13);
+  --hero-grad-2: rgba(209, 154, 111, 0.14);
+  --hero-grad-3: rgba(111, 79, 61, 0.1);
+  --hero-border: #ead5c3;
+  --hero-bubble: rgba(180, 125, 86, 0.22);
+
+  --card-shadow: 0 10px 24px rgba(56, 39, 29, 0.1);
+  --hero-shadow: 0 12px 34px rgba(56, 39, 29, 0.12);
+  --card-header-1: #fff8f1;
+  --card-header-2: #ffffff;
+  --stat-top: rgba(192, 120, 74, 0.5);
+
+  --btn-primary-shadow: rgba(159, 95, 58, 0.28);
+  --btn-primary-hover-1: #d08a59;
+  --btn-primary-hover-2: #8f5637;
+  --btn-outline-color: #915234;
+  --btn-outline-border: #cf9a74;
+  --btn-outline-hover-bg: #fff1e5;
+  --btn-outline-hover-border: #be7f55;
+  --btn-outline-hover-color: #7f4429;
+  --btn-success-1: #8c6b4f;
+  --btn-success-2: #6b513d;
+  --btn-success-shadow: rgba(111, 79, 61, 0.24);
+
+  --badge-bg: #fff3e8;
+  --badge-color: #6d3f22;
+  --badge-border: #e8c5aa;
+  --input-border: #deccb9;
+  --input-focus: #b3724a;
+  --input-focus-ring: rgba(179, 114, 74, 0.16);
+
+  --table-head-1: #7e5944;
+  --table-head-2: #654534;
+  --table-head-border: #5f3f2f;
+  --table-hover-bg: #fff4ea;
+
+  --theme-select-bg: rgba(255, 247, 239, 0.25);
+  --theme-select-border: rgba(255, 234, 218, 0.55);
+  --theme-select-color: #fffaf6;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -214,6 +275,13 @@ h6,
 
 .navbar-brand {
   font-weight: 700;
+}
+
+:root[data-theme="bunny-brown"] .navbar-brand::after {
+  content: "\1F407";
+  margin-left: 0.42rem;
+  font-size: 0.95em;
+  vertical-align: middle;
 }
 
 .nav-link {
@@ -270,6 +338,17 @@ h6,
   top: -110px;
   border-radius: 50%;
   background: radial-gradient(circle, var(--hero-bubble) 0%, transparent 68%);
+  pointer-events: none;
+}
+
+:root[data-theme="bunny-brown"] .hero::before {
+  content: "\1F407  \1F407";
+  position: absolute;
+  right: 0.9rem;
+  bottom: 0.6rem;
+  font-size: 1rem;
+  opacity: 0.26;
+  letter-spacing: 0.24rem;
   pointer-events: none;
 }
 
