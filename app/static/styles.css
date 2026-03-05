@@ -284,6 +284,37 @@ h6,
   vertical-align: middle;
 }
 
+:root[data-theme="bunny-brown"] .bunny-decor-layer {
+  display: block;
+}
+
+:root[data-theme="bunny-brown"] .app-nav,
+:root[data-theme="bunny-brown"] main.container {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="bunny-brown"] h1::after,
+:root[data-theme="bunny-brown"] h2::after,
+:root[data-theme="bunny-brown"] h3::after {
+  content: " \1F430";
+  opacity: 0.75;
+  font-size: 0.78em;
+}
+
+:root[data-theme="bunny-brown"] .card-header {
+  position: relative;
+}
+
+:root[data-theme="bunny-brown"] .card-header::after {
+  content: "\1F407";
+  position: absolute;
+  right: 0.85rem;
+  top: 0.45rem;
+  opacity: 0.38;
+  font-size: 1rem;
+}
+
 .nav-link {
   font-weight: 600;
   border-radius: 999px;
@@ -350,6 +381,13 @@ h6,
   opacity: 0.26;
   letter-spacing: 0.24rem;
   pointer-events: none;
+}
+
+:root[data-theme="bunny-brown"] .btn-primary::after,
+:root[data-theme="bunny-brown"] .btn-success::after {
+  content: " \1F430";
+  font-size: 0.88em;
+  opacity: 0.92;
 }
 
 .card {
@@ -496,6 +534,108 @@ h6,
   font-weight: 700;
 }
 
+.bunny-decor-layer {
+  display: none;
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.bunny-decor {
+  position: absolute;
+  opacity: 0.36;
+  filter: drop-shadow(0 3px 6px rgba(85, 50, 30, 0.18));
+  animation: bunny-float 8.4s ease-in-out infinite;
+  user-select: none;
+  font-size: clamp(1.05rem, 1vw + 0.95rem, 1.6rem);
+}
+
+.bunny-1 {
+  top: 7%;
+  left: 2%;
+  animation-delay: 0s;
+}
+
+.bunny-2 {
+  top: 14%;
+  left: 20%;
+  animation-delay: -1.2s;
+}
+
+.bunny-3 {
+  top: 8%;
+  right: 7%;
+  animation-delay: -2.6s;
+}
+
+.bunny-4 {
+  top: 28%;
+  right: 3%;
+  animation-delay: -0.8s;
+}
+
+.bunny-5 {
+  top: 40%;
+  left: 4%;
+  animation-delay: -3.1s;
+}
+
+.bunny-6 {
+  top: 51%;
+  left: 26%;
+  animation-delay: -1.8s;
+}
+
+.bunny-7 {
+  top: 56%;
+  right: 18%;
+  animation-delay: -4.2s;
+}
+
+.bunny-8 {
+  top: 66%;
+  right: 4%;
+  animation-delay: -2.2s;
+}
+
+.bunny-9 {
+  bottom: 24%;
+  left: 9%;
+  animation-delay: -5s;
+}
+
+.bunny-10 {
+  bottom: 16%;
+  right: 32%;
+  animation-delay: -1.4s;
+}
+
+.bunny-11 {
+  bottom: 8%;
+  left: 35%;
+  animation-delay: -3.8s;
+}
+
+.bunny-12 {
+  bottom: 6%;
+  right: 8%;
+  animation-delay: -2.9s;
+}
+
+@keyframes bunny-float {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-4deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
 main .card,
 main .hero {
   animation: rise-in 0.42s ease-out both;
@@ -515,7 +655,8 @@ main .hero {
 @media (prefers-reduced-motion: reduce) {
   main .card,
   main .hero,
-  .btn {
+  .btn,
+  .bunny-decor {
     animation: none !important;
     transition: none !important;
   }
@@ -543,6 +684,16 @@ main .hero {
 
   .card {
     border-radius: 14px;
+  }
+
+  .bunny-decor {
+    opacity: 0.3;
+  }
+
+  .bunny-2,
+  .bunny-6,
+  .bunny-10 {
+    display: none;
   }
 }
 
