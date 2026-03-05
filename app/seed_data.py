@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Dish
+from app.models import AppSetting, Dish
 from app.services.nutrition import evaluate_nutrition
 
 SAMPLE_DISHES = [
@@ -671,9 +671,23 @@ def _build_dish_row_from_spec(spec: tuple[str, str, str, float, int]) -> dict:
 
 EXTRA_PERUVIAN_DISHES = [_build_dish_row_from_spec(spec) for spec in EXTRA_PERUVIAN_SPECS]
 ALL_SEED_DISHES = SAMPLE_DISHES + EXTRA_PERUVIAN_DISHES
+DEFAULT_DISH_SEED_KEY = "seed.default_dishes.version"
+DEFAULT_DISH_SEED_VERSION = "2026-03-05"
 
 
 def seed_default_dishes(session: Session) -> int:
+    # Protege despliegues reales: sembrar solo en instalacion inicial.
+    # Si ya hay cualquier plato o ya existe marca de seed, no reinsertar.
+    applied = session.scalar(select(AppSetting).where(AppSetting.key == DEFAULT_DISH_SEED_KEY))
+    if applied:
+        return 0
+
+    existing_count = session.scalar(select(func.count()).select_from(Dish)) or 0
+    if existing_count > 0:
+        session.add(AppSetting(key=DEFAULT_DISH_SEED_KEY, value=DEFAULT_DISH_SEED_VERSION))
+        session.commit()
+        return 0
+
     existing_names = set(session.scalars(select(Dish.name)).all())
     inserted = 0
 
@@ -711,7 +725,7 @@ def seed_default_dishes(session: Session) -> int:
         existing_names.add(row["name"])
         inserted += 1
 
-    if inserted:
-        session.commit()
+    session.add(AppSetting(key=DEFAULT_DISH_SEED_KEY, value=DEFAULT_DISH_SEED_VERSION))
+    session.commit()
 
     return inserted
