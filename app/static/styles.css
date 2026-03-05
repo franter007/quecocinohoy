@@ -286,6 +286,43 @@ h6,
 
 :root[data-theme="bunny-brown"] .bunny-decor-layer {
   display: block;
+  isolation: isolate;
+}
+
+:root[data-theme="bunny-brown"] .bunny-decor-layer::before {
+  content:
+    "\1F430  \1F407  \1F430  \1F407  \1F430  \1F407  \1F430  \1F407\A"
+    "\1F407  \1F430  \1F407  \1F430  \1F407  \1F430  \1F407  \1F430\A"
+    "\1F430  \1F407  \1F430  \1F407  \1F430  \1F407  \1F430  \1F407\A"
+    "\1F407  \1F430  \1F407  \1F430  \1F407  \1F430  \1F407  \1F430\A"
+    "\1F430  \1F407  \1F430  \1F407  \1F430  \1F407  \1F430  \1F407\A"
+    "\1F407  \1F430  \1F407  \1F430  \1F407  \1F430  \1F407  \1F430";
+  position: absolute;
+  inset: -8% -4%;
+  z-index: 0;
+  white-space: pre;
+  font-size: clamp(1.18rem, 0.8vw + 1rem, 1.75rem);
+  letter-spacing: 0.86rem;
+  line-height: 2.2;
+  opacity: 0.18;
+  transform: rotate(-6deg);
+}
+
+:root[data-theme="bunny-brown"] .bunny-decor-layer::after {
+  content:
+    "\1F407   \1F407   \1F430   \1F430   \1F407   \1F430\A"
+    "\1F430   \1F407   \1F430   \1F407   \1F430   \1F407\A"
+    "\1F407   \1F430   \1F407   \1F430   \1F407   \1F430\A"
+    "\1F430   \1F407   \1F430   \1F407   \1F430   \1F407";
+  position: absolute;
+  inset: 8% -9% -10% 12%;
+  z-index: 0;
+  white-space: pre;
+  font-size: clamp(1.28rem, 1vw + 1.04rem, 1.95rem);
+  letter-spacing: 1.05rem;
+  line-height: 2.55;
+  opacity: 0.13;
+  transform: rotate(8deg);
 }
 
 :root[data-theme="bunny-brown"] .app-nav,
@@ -545,11 +582,12 @@ h6,
 
 .bunny-decor {
   position: absolute;
-  opacity: 0.36;
-  filter: drop-shadow(0 3px 6px rgba(85, 50, 30, 0.18));
+  z-index: 1;
+  opacity: 0.55;
+  filter: drop-shadow(0 4px 8px rgba(85, 50, 30, 0.26));
   animation: bunny-float 8.4s ease-in-out infinite;
   user-select: none;
-  font-size: clamp(1.05rem, 1vw + 0.95rem, 1.6rem);
+  font-size: clamp(1.35rem, 1.1vw + 1.12rem, 2.2rem);
 }
 
 .bunny-1 {
@@ -687,7 +725,7 @@ main .hero {
   }
 
   .bunny-decor {
-    opacity: 0.3;
+    opacity: 0.42;
   }
 
   .bunny-2,
