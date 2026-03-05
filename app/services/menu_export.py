@@ -58,25 +58,29 @@ def menu_export_presets() -> list[dict[str, str]]:
     return [{"key": key, "label": MENU_EXPORT_PRESET_LABELS[key]} for key in MENU_EXPORT_PRESETS]
 
 
-def _menu_cell_text(item: Any) -> str:
+def _menu_cell_text(item: Any, include_warnings: bool = False) -> str:
     if not item:
         return "-"
-    warning = item.dish.warnings or "Sin advertencias"
-    return f"{item.dish.name}\nS/ {item.estimated_cost:.2f}\n{warning}"
+    text = f"{item.dish.name}\nS/ {item.estimated_cost:.2f}"
+    if include_warnings:
+        warning = item.dish.warnings or "Sin advertencias"
+        text = f"{text}\n{warning}"
+    return text
 
 
-def _menu_value(row: dict, key: str) -> str:
+def _menu_value(row: dict, key: str, include_warnings: bool = False) -> str:
     if key == "day_name":
         return row["day_name"]
     if key == "daily_total":
         return f"S/ {row['daily_total']:.2f}"
-    return _menu_cell_text(row["meals"].get(key))
+    return _menu_cell_text(row["meals"].get(key), include_warnings=include_warnings)
 
 
 def _build_menu_table(
     rows: list[dict],
     meal_labels: dict[str, str],
     selected_columns: list[str],
+    include_warnings: bool = False,
 ) -> tuple[list[str], list[list[str]]]:
     headers: list[str] = []
     for key in selected_columns:
@@ -85,7 +89,7 @@ def _build_menu_table(
         else:
             headers.append(meal_labels[key])
 
-    body = [[_menu_value(row, key) for key in selected_columns] for row in rows]
+    body = [[_menu_value(row, key, include_warnings=include_warnings) for key in selected_columns] for row in rows]
     return headers, body
 
 
@@ -95,8 +99,9 @@ def build_menu_pdf_bytes(
     total_cost: float,
     meal_labels: dict[str, str],
     selected_columns: list[str],
+    include_warnings: bool = False,
 ) -> bytes:
-    headers, body = _build_menu_table(rows, meal_labels, selected_columns)
+    headers, body = _build_menu_table(rows, meal_labels, selected_columns, include_warnings=include_warnings)
     return build_table_pdf_bytes(
         title="Menu semanal familiar",
         subtitle=f"Semana {week_start.isoformat()} - Total estimado: S/ {total_cost:.2f}",
@@ -111,8 +116,9 @@ def build_menu_png_bytes(
     total_cost: float,
     meal_labels: dict[str, str],
     selected_columns: list[str],
+    include_warnings: bool = False,
 ) -> bytes:
-    headers, body = _build_menu_table(rows, meal_labels, selected_columns)
+    headers, body = _build_menu_table(rows, meal_labels, selected_columns, include_warnings=include_warnings)
     return build_table_png_bytes(
         title="Menu semanal familiar",
         subtitle=f"Semana {week_start.isoformat()} | Total estimado: S/ {total_cost:.2f}",

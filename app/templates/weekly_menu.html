@@ -52,11 +52,11 @@
     </div>
   </div>
   <div class="card-body">
-    <form method="get" class="row g-2 align-items-end">
+    <form method="get" class="row g-2 align-items-end" id="menuExportForm">
       <input type="hidden" name="week_start" value="{{ week_start.isoformat() }}">
       <div class="col-12">
         <label class="form-label">Plantilla de columnas</label>
-        <select class="form-select mb-2" name="preset">
+        <select class="form-select mb-2" name="preset" id="menuExportPreset">
           <option value="custom" {% if selected_menu_export_preset == "custom" %}selected{% endif %}>Personalizado</option>
           {% for preset in menu_export_presets %}
           <option value="{{ preset.key }}" {% if selected_menu_export_preset == preset.key %}selected{% endif %}>
@@ -90,13 +90,25 @@
       <div class="col-md-3">
         <label class="form-label">WhatsApp</label>
         <select class="form-select" name="wa_scope">
-          <option value="all">Todos los tiempos</option>
-          <option value="desayuno">Solo desayuno</option>
-          <option value="almuerzo">Solo almuerzo</option>
-          <option value="cena">Solo cena</option>
-          <option value="lonchera">Solo lonchera</option>
-          <option value="refresco">Solo refresco</option>
+          <option value="all" {% if selected_wa_scope == "all" %}selected{% endif %}>Todos los tiempos</option>
+          <option value="desayuno" {% if selected_wa_scope == "desayuno" %}selected{% endif %}>Solo desayuno</option>
+          <option value="almuerzo" {% if selected_wa_scope == "almuerzo" %}selected{% endif %}>Solo almuerzo</option>
+          <option value="cena" {% if selected_wa_scope == "cena" %}selected{% endif %}>Solo cena</option>
+          <option value="lonchera" {% if selected_wa_scope == "lonchera" %}selected{% endif %}>Solo lonchera</option>
+          <option value="refresco" {% if selected_wa_scope == "refresco" %}selected{% endif %}>Solo refresco</option>
         </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label d-block">Opciones</label>
+        <label class="form-check mb-0">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            name="include_warnings"
+            {% if selected_include_warnings %}checked{% endif %}
+          >
+          <span class="form-check-label">Incluir advertencias nutricionales</span>
+        </label>
       </div>
       <div class="col-md-3 d-grid">
         <button class="btn btn-success" type="submit" formtarget="_blank" formaction="/menus/share/whatsapp">Compartir WhatsApp</button>
@@ -161,4 +173,24 @@
   </div>
 </section>
 {% endif %}
+<script>
+  (function () {
+    var form = document.getElementById("menuExportForm");
+    if (!form) {
+      return;
+    }
+    var presetSelect = document.getElementById("menuExportPreset");
+    if (!presetSelect) {
+      return;
+    }
+    var columnChecks = form.querySelectorAll("input[name='columns']");
+    columnChecks.forEach(function (checkbox) {
+      checkbox.addEventListener("change", function () {
+        if (presetSelect.value !== "custom") {
+          presetSelect.value = "custom";
+        }
+      });
+    });
+  })();
+</script>
 {% endblock %}
