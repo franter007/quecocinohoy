@@ -178,10 +178,15 @@
           body: formData,
         })
           .then(function (response) {
-            if (!response.ok) {
-              throw new Error("No se pudo guardar la edicion");
+            if (response.ok) {
+              return response.json();
             }
-            return response.json();
+            return response.json().then(function (errorData) {
+              var errorDetail = errorData && errorData.detail ? String(errorData.detail) : "";
+              throw new Error(errorDetail || "No se pudo guardar la edicion");
+            }).catch(function () {
+              throw new Error("No se pudo guardar la edicion");
+            });
           })
           .then(function () {
             if (dishEditModal) {
@@ -191,7 +196,7 @@
           })
           .catch(function (error) {
             console.error(error);
-            window.alert("No se pudo guardar el plato. Revisa los datos e intenta nuevamente.");
+            window.alert(error.message || "No se pudo guardar el plato. Revisa los datos e intenta nuevamente.");
           })
           .finally(function () {
             if (submitButton) {

@@ -208,6 +208,30 @@ def _parse_bool(value: str | None) -> bool:
     return value in {"on", "true", "1", "si", "yes"}
 
 
+def _parse_float_field(value: str | None, label: str, default: float | None = None) -> float:
+    raw = (value or "").strip()
+    if not raw:
+        if default is not None:
+            return default
+        raise HTTPException(status_code=400, detail=f"{label} invalido")
+    normalized = raw.replace(",", ".")
+    try:
+        return float(normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"{label} invalido: usa numero valido") from exc
+
+
+def _parse_int_field(value: str | None, label: str, default: int | None = None) -> int:
+    if value is None or not str(value).strip():
+        if default is not None:
+            return default
+        raise HTTPException(status_code=400, detail=f"{label} invalido")
+    parsed = _parse_float_field(value, label)
+    if not float(parsed).is_integer():
+        raise HTTPException(status_code=400, detail=f"{label} invalido: debe ser entero")
+    return int(parsed)
+
+
 def _current_user(request: Request) -> dict | None:
     return getattr(request.state, "current_user", None)
 
@@ -708,14 +732,14 @@ def create_dish(
     name: str = Form(...),
     meal_type: str = Form(...),
     ingredients: str = Form(...),
-    cost_per_serving: float = Form(...),
-    calories: int = Form(...),
-    protein_g: float = Form(0),
-    carbs_g: float = Form(0),
-    fat_g: float = Form(0),
-    fiber_g: float = Form(0),
-    sugar_g: float = Form(0),
-    sodium_mg: float = Form(0),
+    cost_per_serving: str = Form(...),
+    calories: str = Form(...),
+    protein_g: str = Form("0"),
+    carbs_g: str = Form("0"),
+    fat_g: str = Form("0"),
+    fiber_g: str = Form("0"),
+    sugar_g: str = Form("0"),
+    sodium_mg: str = Form("0"),
     benefits: str = Form(""),
     warnings: str = Form(""),
     is_active: str | None = Form(None),
@@ -726,6 +750,14 @@ def create_dish(
 
     if meal_type not in MEAL_TYPES:
         raise HTTPException(status_code=400, detail="Tipo de comida invalido")
+    cost_value = _parse_float_field(cost_per_serving, "Costo por porcion")
+    calories_value = _parse_int_field(calories, "Calorias")
+    protein_value = _parse_float_field(protein_g, "Proteina", default=0)
+    carbs_value = _parse_float_field(carbs_g, "Carbohidratos", default=0)
+    fat_value = _parse_float_field(fat_g, "Grasa", default=0)
+    fiber_value = _parse_float_field(fiber_g, "Fibra", default=0)
+    sugar_value = _parse_float_field(sugar_g, "Azucar", default=0)
+    sodium_value = _parse_float_field(sodium_mg, "Sodio", default=0)
 
     dish = Dish(name="", meal_type=meal_type, ingredients="", cost_per_serving=0, calories=0)
     _upsert_dish(
@@ -733,14 +765,14 @@ def create_dish(
         name=name,
         meal_type=meal_type,
         ingredients=ingredients,
-        cost_per_serving=cost_per_serving,
-        calories=calories,
-        protein_g=protein_g,
-        carbs_g=carbs_g,
-        fat_g=fat_g,
-        fiber_g=fiber_g,
-        sugar_g=sugar_g,
-        sodium_mg=sodium_mg,
+        cost_per_serving=cost_value,
+        calories=calories_value,
+        protein_g=protein_value,
+        carbs_g=carbs_value,
+        fat_g=fat_value,
+        fiber_g=fiber_value,
+        sugar_g=sugar_value,
+        sodium_mg=sodium_value,
         benefits=benefits,
         warnings=warnings,
         is_active=_parse_bool(is_active),
@@ -813,14 +845,14 @@ def edit_dish(
     name: str = Form(...),
     meal_type: str = Form(...),
     ingredients: str = Form(...),
-    cost_per_serving: float = Form(...),
-    calories: int = Form(...),
-    protein_g: float = Form(0),
-    carbs_g: float = Form(0),
-    fat_g: float = Form(0),
-    fiber_g: float = Form(0),
-    sugar_g: float = Form(0),
-    sodium_mg: float = Form(0),
+    cost_per_serving: str = Form(...),
+    calories: str = Form(...),
+    protein_g: str = Form("0"),
+    carbs_g: str = Form("0"),
+    fat_g: str = Form("0"),
+    fiber_g: str = Form("0"),
+    sugar_g: str = Form("0"),
+    sodium_mg: str = Form("0"),
     benefits: str = Form(""),
     warnings: str = Form(""),
     is_active: str | None = Form(None),
@@ -831,6 +863,14 @@ def edit_dish(
 
     if meal_type not in MEAL_TYPES:
         raise HTTPException(status_code=400, detail="Tipo de comida invalido")
+    cost_value = _parse_float_field(cost_per_serving, "Costo por porcion")
+    calories_value = _parse_int_field(calories, "Calorias")
+    protein_value = _parse_float_field(protein_g, "Proteina", default=0)
+    carbs_value = _parse_float_field(carbs_g, "Carbohidratos", default=0)
+    fat_value = _parse_float_field(fat_g, "Grasa", default=0)
+    fiber_value = _parse_float_field(fiber_g, "Fibra", default=0)
+    sugar_value = _parse_float_field(sugar_g, "Azucar", default=0)
+    sodium_value = _parse_float_field(sodium_mg, "Sodio", default=0)
     dish = db.get(Dish, dish_id)
     if not dish:
         raise HTTPException(status_code=404, detail="Plato no encontrado")
@@ -840,14 +880,14 @@ def edit_dish(
         name=name,
         meal_type=meal_type,
         ingredients=ingredients,
-        cost_per_serving=cost_per_serving,
-        calories=calories,
-        protein_g=protein_g,
-        carbs_g=carbs_g,
-        fat_g=fat_g,
-        fiber_g=fiber_g,
-        sugar_g=sugar_g,
-        sodium_mg=sodium_mg,
+        cost_per_serving=cost_value,
+        calories=calories_value,
+        protein_g=protein_value,
+        carbs_g=carbs_value,
+        fat_g=fat_value,
+        fiber_g=fiber_value,
+        sugar_g=sugar_value,
+        sodium_mg=sodium_value,
         benefits=benefits,
         warnings=warnings,
         is_active=_parse_bool(is_active),
