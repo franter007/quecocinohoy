@@ -39,6 +39,14 @@
         <button class="btn btn-primary" type="submit">Guardar configuracion</button>
       </div>
     </form>
+    {% if can_manage_security %}
+    <hr>
+    <div class="small text-muted">
+      Para ajustar criterios de etiqueta
+      <strong>Saludable / Con alertas</strong>,
+      ve a <a href="/security">Seguridad y reglas nutricionales</a>.
+    </div>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

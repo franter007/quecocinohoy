@@ -69,6 +69,12 @@ from app.services.login_guard import (
     suggest_failure_sleep_seconds,
 )
 from app.services.nutrition import evaluate_nutrition
+from app.services.nutrition_rules import (
+    build_nutrition_form_fields,
+    load_nutrition_rules,
+    save_nutrition_rules,
+    validate_nutrition_form_values,
+)
 from app.services.report_export import (
     build_report_pdf_bytes,
     build_report_png_bytes,
@@ -294,6 +300,7 @@ def _upsert_dish(
     benefits: str,
     warnings: str,
     is_active: bool,
+    nutrition_rules=None,
 ) -> None:
     is_healthy, auto_benefits, auto_warnings = evaluate_nutrition(
         calories=calories,
@@ -303,6 +310,7 @@ def _upsert_dish(
         fiber_g=fiber_g,
         sugar_g=sugar_g,
         sodium_mg=sodium_mg,
+        rules=nutrition_rules,
     )
 
     dish.name = name.strip()
@@ -758,6 +766,7 @@ def create_dish(
     fiber_value = _parse_float_field(fiber_g, "Fibra", default=0)
     sugar_value = _parse_float_field(sugar_g, "Azucar", default=0)
     sodium_value = _parse_float_field(sodium_mg, "Sodio", default=0)
+    nutrition_rules = load_nutrition_rules(db)
 
     dish = Dish(name="", meal_type=meal_type, ingredients="", cost_per_serving=0, calories=0)
     _upsert_dish(
@@ -776,6 +785,7 @@ def create_dish(
         benefits=benefits,
         warnings=warnings,
         is_active=_parse_bool(is_active),
+        nutrition_rules=nutrition_rules,
     )
     db.add(dish)
     db.commit()
@@ -871,6 +881,7 @@ def edit_dish(
     fiber_value = _parse_float_field(fiber_g, "Fibra", default=0)
     sugar_value = _parse_float_field(sugar_g, "Azucar", default=0)
     sodium_value = _parse_float_field(sodium_mg, "Sodio", default=0)
+    nutrition_rules = load_nutrition_rules(db)
     dish = db.get(Dish, dish_id)
     if not dish:
         raise HTTPException(status_code=404, detail="Plato no encontrado")
@@ -891,6 +902,7 @@ def edit_dish(
         benefits=benefits,
         warnings=warnings,
         is_active=_parse_bool(is_active),
+        nutrition_rules=nutrition_rules,
     )
     db.commit()
     if request.headers.get("x-requested-with") == "fetch":
@@ -1464,7 +1476,12 @@ def users_edit_submit(
 
 
 @app.get("/security", response_class=HTMLResponse)
-def security_page(request: Request, saved: str | None = None, db: Session = Depends(get_db)):
+def security_page(
+    request: Request,
+    saved: str | None = None,
+    nutrition_saved: str | None = None,
+    db: Session = Depends(get_db),
+):
     _require_permission(request, PERMISSION_SECURITY)
     return _render(
         request,
@@ -1472,7 +1489,10 @@ def security_page(request: Request, saved: str | None = None, db: Session = Depe
         {
             "security_fields": build_security_form_fields(db),
             "security_errors": {},
+            "nutrition_fields": build_nutrition_form_fields(db),
+            "nutrition_errors": {},
             "saved": saved == "1",
+            "nutrition_saved": nutrition_saved == "1",
         },
     )
 
@@ -1490,13 +1510,59 @@ async def security_submit(request: Request, db: Session = Depends(get_db)):
             {
                 "security_fields": build_security_form_fields(db, payload),
                 "security_errors": errors,
+                "nutrition_fields": build_nutrition_form_fields(db),
+                "nutrition_errors": {},
                 "saved": False,
+                "nutrition_saved": False,
             },
             status_code=400,
         )
 
     save_security_settings(db, cleaned_values)
     return RedirectResponse(url="/security?saved=1", status_code=303)
+
+
+@app.post("/security/nutrition", response_class=HTMLResponse)
+async def nutrition_rules_submit(request: Request, db: Session = Depends(get_db)):
+    _require_permission(request, PERMISSION_SECURITY)
+    form = await request.form()
+    payload = {key: str(value) for key, value in form.items()}
+    cleaned_values, errors = validate_nutrition_form_values(payload)
+    if errors:
+        return _render(
+            request,
+            "security.html",
+            {
+                "security_fields": build_security_form_fields(db),
+                "security_errors": {},
+                "nutrition_fields": build_nutrition_form_fields(db, payload),
+                "nutrition_errors": errors,
+                "saved": False,
+                "nutrition_saved": False,
+            },
+            status_code=400,
+        )
+
+    save_nutrition_rules(db, cleaned_values)
+
+    # Recalcula el estado saludable/con alertas para reflejar reglas nuevas.
+    active_rules = load_nutrition_rules(db)
+    dishes = list(db.scalars(select(Dish)).all())
+    for dish in dishes:
+        is_healthy, _, _ = evaluate_nutrition(
+            calories=dish.calories,
+            protein_g=dish.protein_g,
+            carbs_g=dish.carbs_g,
+            fat_g=dish.fat_g,
+            fiber_g=dish.fiber_g,
+            sugar_g=dish.sugar_g,
+            sodium_mg=dish.sodium_mg,
+            rules=active_rules,
+        )
+        dish.is_healthy = is_healthy
+    db.commit()
+
+    return RedirectResponse(url="/security?nutrition_saved=1", status_code=303)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
