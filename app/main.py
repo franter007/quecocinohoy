@@ -790,6 +790,7 @@ def edit_dish_modal_form(
     if not dish:
         raise HTTPException(status_code=404, detail="Plato no encontrado")
     next_path = _safe_dishes_next_path(next)
+    current_user = _current_user(request) or {}
     return templates.TemplateResponse(
         "partials/dish_edit_modal_form.html",
         {
@@ -800,6 +801,7 @@ def edit_dish_modal_form(
             "action": f"/dishes/{dish_id}/edit",
             "next_url": next_path,
             "full_edit_url": f"/dishes/{dish_id}/edit?{urlencode({'next': next_path})}",
+            "show_nutrition_details": bool(current_user.get("show_nutrition_details")),
         },
     )
 
