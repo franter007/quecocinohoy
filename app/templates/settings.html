@@ -35,6 +35,22 @@
         Si la desactivas, veras una vista mas simple en menu semanal y en edicion rapida de platos.
       </div>
 
+      <label class="form-check pt-2 border-top">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          name="show_nutrition_status_badges"
+          {% if show_nutrition_status_badges_setting %}checked{% endif %}
+        >
+        <span class="form-check-label fw-semibold">
+          Mostrar etiquetas "Saludable / Con alertas" en lista de platos
+        </span>
+      </label>
+
+      <div class="small text-muted">
+        Si la desactivas, solo veras el estado operativo (Activo/Inactivo) sin etiqueta nutricional resumida.
+      </div>
+
       <div>
         <button class="btn btn-primary" type="submit">Guardar configuracion</button>
       </div>

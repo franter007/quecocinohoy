@@ -89,7 +89,12 @@ from app.services.runtime_settings import (
     save_security_settings,
     validate_security_form_values,
 )
-from app.services.ui_preferences import get_show_nutrition_details, save_show_nutrition_details
+from app.services.ui_preferences import (
+    get_show_nutrition_details,
+    get_show_nutrition_status_badges,
+    save_show_nutrition_details,
+    save_show_nutrition_status_badges,
+)
 
 MEAL_LABELS = {
     "desayuno": "Desayuno",
@@ -168,6 +173,7 @@ async def auth_middleware(request: Request, call_next):
             "full_name": user.full_name,
             "role": user.role,
             "show_nutrition_details": get_show_nutrition_details(session, user.id),
+            "show_nutrition_status_badges": get_show_nutrition_status_badges(session, user.id),
         }
 
     return await call_next(request)
@@ -269,6 +275,7 @@ def _render(request: Request, template_name: str, context: dict, status_code: in
         "request": request,
         "current_user": user,
         "show_nutrition_details": bool(user and user.get("show_nutrition_details")),
+        "show_nutrition_status_badges": bool(user is None or user.get("show_nutrition_status_badges", True)),
         "role_labels": ROLE_LABELS,
         **_permission_flags(role, access_matrix=role_matrix),
     }
@@ -711,6 +718,7 @@ def dishes_partial(
             "current_list_next": urlencode({"next": current_list_url}),
             "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE),
             "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN),
+            "show_nutrition_status_badges": bool(current_user.get("show_nutrition_status_badges", True)),
             **list_context,
         },
     )
@@ -1213,6 +1221,9 @@ def settings_page(request: Request, saved: str | None = None):
         {
             "saved": saved == "1",
             "show_nutrition_details_setting": bool(current_user.get("show_nutrition_details")),
+            "show_nutrition_status_badges_setting": bool(
+                current_user.get("show_nutrition_status_badges", True)
+            ),
         },
     )
 
@@ -1221,6 +1232,7 @@ def settings_page(request: Request, saved: str | None = None):
 def settings_submit(
     request: Request,
     show_nutrition_details: str | None = Form(None),
+    show_nutrition_status_badges: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     _require_permission(request, PERMISSION_HOME)
@@ -1230,6 +1242,7 @@ def settings_submit(
         raise HTTPException(status_code=401, detail="Sesion invalida")
 
     save_show_nutrition_details(db, user_id, _parse_bool(show_nutrition_details))
+    save_show_nutrition_status_badges(db, user_id, _parse_bool(show_nutrition_status_badges))
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 

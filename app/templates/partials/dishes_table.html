@@ -26,10 +26,12 @@
           {% else %}
           <span class="badge text-bg-secondary" title="No se usa en nuevas generaciones de menu">Inactivo</span>
           {% endif %}
-          {% if dish.is_healthy %}
-          <span class="badge text-bg-info" title="Tiene 0 o 1 alerta nutricional segun reglas automaticas">Saludable</span>
-          {% else %}
-          <span class="badge text-bg-warning" title="Tiene 2 o mas alertas nutricionales segun reglas automaticas">Con alertas</span>
+          {% if show_nutrition_status_badges %}
+            {% if dish.is_healthy %}
+            <span class="badge text-bg-info" title="Tiene 0 o 1 alerta nutricional segun reglas automaticas">Saludable</span>
+            {% else %}
+            <span class="badge text-bg-warning" title="Tiene 2 o mas alertas nutricionales segun reglas automaticas">Con alertas</span>
+            {% endif %}
           {% endif %}
         </td>
         <td class="dish-actions-cell">
