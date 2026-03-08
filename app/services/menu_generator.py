@@ -64,12 +64,22 @@ def _item_cost(dish: Dish, meal_type: str) -> float:
     return round(dish.cost_per_serving * HOUSEHOLD_FACTORS.get(meal_type, 3.1), 2)
 
 
+def _is_menu_complete(menu: WeeklyMenu) -> bool:
+    required_slots = {(day_of_week, meal_type) for day_of_week in range(7) for meal_type in MEAL_TYPES}
+    filled_slots = {
+        (item.day_of_week, item.meal_type)
+        for item in menu.items
+        if item.dish is not None
+    }
+    return required_slots.issubset(filled_slots)
+
+
 def generate_weekly_menu(session: Session, week_start: date, force: bool = False) -> WeeklyMenu:
     normalized = normalize_week_start(week_start)
     existing = get_weekly_menu(session, normalized)
-    if existing and not force:
+    if existing and not force and _is_menu_complete(existing):
         return existing
-    if existing and force:
+    if existing:
         session.delete(existing)
         session.flush()
 
@@ -119,4 +129,3 @@ def generate_weekly_menu(session: Session, week_start: date, force: bool = False
 
     session.commit()
     return get_weekly_menu(session, normalized)  # type: ignore[return-value]
-

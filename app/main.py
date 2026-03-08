@@ -678,6 +678,7 @@ def dishes_page(
     list_context = _build_dishes_list_context(db, q=q, meal_type=meal_type, page=page, per_page=per_page)
     current_user = _current_user(request) or {}
     role = str(current_user.get("role", ""))
+    access_matrix = _current_role_matrix(request)
     current_list_url = _build_dishes_state_url(
         q=list_context["q"],
         meal_type=list_context["meal_type"],
@@ -695,8 +696,8 @@ def dishes_page(
             "new_dish_url": f"/dishes/new?{urlencode({'next': current_list_url})}",
             "current_list_url": current_list_url,
             "current_list_next": urlencode({"next": current_list_url}),
-            "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE),
-            "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN),
+            "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE, access_matrix=access_matrix),
+            "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN, access_matrix=access_matrix),
             **list_context,
         },
     )
@@ -715,6 +716,7 @@ def dishes_partial(
     list_context = _build_dishes_list_context(db, q=q, meal_type=meal_type, page=page, per_page=per_page)
     current_user = _current_user(request) or {}
     role = str(current_user.get("role", ""))
+    access_matrix = _current_role_matrix(request)
     current_list_url = _build_dishes_state_url(
         q=list_context["q"],
         meal_type=list_context["meal_type"],
@@ -729,8 +731,8 @@ def dishes_partial(
             "base_path": "/dishes",
             "current_list_url": current_list_url,
             "current_list_next": urlencode({"next": current_list_url}),
-            "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE),
-            "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN),
+            "can_write_dishes": has_permission(role, PERMISSION_DISHES_WRITE, access_matrix=access_matrix),
+            "can_admin_dishes": has_permission(role, PERMISSION_DISHES_ADMIN, access_matrix=access_matrix),
             "show_nutrition_status_badges": bool(current_user.get("show_nutrition_status_badges", True)),
             **list_context,
         },
